@@ -24,7 +24,7 @@ Built as a portfolio-quality SaaS application to demonstrate production-ready fu
 
 ## 🚀 Live Demo
 
-**Live app:** `(https://smart-inventory-pos-six.vercel.app/)`  ← _replace with your Vercel URL_
+**Live app:** https://smart-inventory-pos-six.vercel.app/  ← https://smart-inventory-pos-six.vercel.app/
 
 **Demo login (shared sandbox):**
 - Email: `demo@smartinventory.app`
