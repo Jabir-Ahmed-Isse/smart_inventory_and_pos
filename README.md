@@ -262,9 +262,8 @@ This project is licensed under the MIT License — see [LICENSE](LICENSE).
 **Engineer Mire** — Software Engineer
 
 - GitHub: [@apdiweli](https://github.com/apdiweli)
-- LinkedIn: _add your LinkedIn_
-- Portfolio: _add your portfolio_
-- Email: _add your email_
+- LinkedIn: https://www.linkedin.com/in/abdiweli-ali-046090209/
+- Email: alizakifarah@gmail.com
 
 ---
 
