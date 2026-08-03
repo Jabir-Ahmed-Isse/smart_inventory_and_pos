@@ -1,0 +1,9 @@
+# Safety net (the Next app also has web/.gitignore)
+node_modules/
+.next/
+.env
+.env.*
+!.env.example
+!.env*.example
+*.log
+.DS_Store
