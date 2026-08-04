@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { Icon } from "@/components/Icon";
 import { checkout, type CheckoutItem } from "@/lib/pos/actions";
+import { quickAddCustomer } from "@/lib/customers/actions";
 
 export type CatalogItem = {
   id: string;
@@ -21,22 +22,34 @@ const POS_STATUS: Record<CatalogItem["status"], { pill: string; icon: string; la
   out: { pill: "bg-surface-variant text-on-surface-variant", icon: "block", label: "Out of Stock" },
 };
 
-type PayMethod = "cash" | "card" | "mobile" | "credit";
+export type PosAccount = { id: string; name: string; kind: "bank" | "mobile" | "cash" };
+export type PosCustomer = { id: string; name: string };
+const kindIcon = (kind: PosAccount["kind"]) =>
+  kind === "mobile" ? "smartphone" : kind === "cash" ? "payments" : "account_balance";
 
 export function PosTerminal({
   catalog,
   currency,
   taxRate,
+  accounts,
+  customers,
+  canPay,
 }: {
   catalog: CatalogItem[];
   currency: string;
   taxRate: number;
+  accounts: PosAccount[];
+  customers: PosCustomer[];
+  canPay: boolean;
 }) {
   const [cart, setCart] = useState<Record<string, number>>({});
-  const [payment, setPayment] = useState<PayMethod>("card");
+  // Selected account id, or null = "Due" (unpaid). Staff can only place due orders.
+  const [account, setAccount] = useState<string | null>(canPay ? accounts[0]?.id ?? null : null);
+  const [customer, setCustomer] = useState<PosCustomer | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<{ orderNumber: string; total: number; due: boolean } | null>(null);
   const [pending, startTransition] = useTransition();
+  const isDue = account === null;
 
   const byId = useMemo(() => new Map(catalog.map((c) => [c.id, c])), [catalog]);
   const fmt = (n: number) =>
@@ -75,10 +88,11 @@ export function PosTerminal({
       unitPrice: l.item.price,
     }));
     startTransition(async () => {
-      const res = await checkout(items, payment);
+      const res = await checkout(items, isDue ? null : account, customer?.id ?? null);
       if (res.ok) {
-        setReceipt({ orderNumber: res.orderNumber, total: res.total, due: payment === "credit" });
+        setReceipt({ orderNumber: res.orderNumber, total: res.total, due: res.due });
         setCart({});
+        setCustomer(null);
       } else {
         setError(res.error);
       }
@@ -181,6 +195,11 @@ export function PosTerminal({
           </span>
         </div>
 
+        {/* Customer */}
+        <div className="px-md py-sm border-b border-outline-variant bg-surface">
+          <CustomerPicker customers={customers} value={customer} onChange={setCustomer} />
+        </div>
+
         <div className="flex-1 overflow-y-auto p-md space-y-sm bg-surface">
           {receipt ? (
             <div className="h-full flex flex-col items-center justify-center text-center gap-sm p-md">
@@ -270,36 +289,51 @@ export function PosTerminal({
             </div>
           </div>
           <div className="pt-sm space-y-sm">
-            <div className="grid grid-cols-4 gap-sm">
-              {(["cash", "card", "mobile", "credit"] as PayMethod[]).map((m) => (
-                <PayOption
-                  key={m}
-                  icon={
-                    m === "cash"
-                      ? "payments"
-                      : m === "card"
-                        ? "credit_card"
-                        : m === "mobile"
-                          ? "contactless"
-                          : "schedule"
-                  }
-                  label={m === "cash" ? "Cash" : m === "card" ? "Card" : m === "mobile" ? "Mobile" : "Due"}
-                  active={payment === m}
-                  onClick={() => setPayment(m)}
-                />
-              ))}
-            </div>
-            {payment === "credit" && (
-              <p className="font-body-sm text-body-sm text-tertiary flex items-center gap-1 px-1">
-                <Icon name="info" size={16} /> Recorded as an unpaid (due) order — no cash counted yet.
-              </p>
+            <p className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">
+              {canPay ? "Receive payment into" : "Payment"}
+            </p>
+            {canPay ? (
+              <>
+                <div className="grid grid-cols-3 gap-sm">
+                  {accounts.map((a) => (
+                    <PayOption
+                      key={a.id}
+                      icon={kindIcon(a.kind)}
+                      label={a.name}
+                      active={account === a.id}
+                      onClick={() => setAccount(a.id)}
+                    />
+                  ))}
+                  <PayOption icon="schedule" label="Due" active={isDue} onClick={() => setAccount(null)} />
+                </div>
+                {accounts.length === 0 && (
+                  <p className="font-body-sm text-body-sm text-tertiary flex items-start gap-1 px-1">
+                    <Icon name="info" size={16} className="mt-0.5 shrink-0" />
+                    No payment accounts yet. Add banks / mobile money in{" "}
+                    <span className="font-medium">Finance → Cash &amp; Bank</span>, or place a Due order.
+                  </p>
+                )}
+                {isDue && accounts.length > 0 && (
+                  <p className="font-body-sm text-body-sm text-tertiary flex items-center gap-1 px-1">
+                    <Icon name="info" size={16} /> Unpaid (due) order — no money counted until it&apos;s settled.
+                  </p>
+                )}
+              </>
+            ) : (
+              <div className="rounded-lg border border-outline-variant bg-surface-container-lowest px-sm py-sm flex items-start gap-2">
+                <Icon name="schedule" size={18} className="text-tertiary mt-0.5 shrink-0" />
+                <p className="font-body-sm text-body-sm text-on-surface-variant">
+                  This order is placed as <span className="font-semibold text-on-surface">Due</span>. A cashier or
+                  accountant records the payment into an account.
+                </p>
+              </div>
             )}
             <button
               onClick={complete}
               disabled={lines.length === 0 || pending}
               className="w-full bg-primary hover:bg-primary/90 disabled:bg-primary/40 disabled:cursor-not-allowed text-on-primary font-headline-lg text-[18px] py-md rounded-lg shadow-sm transition-all transform active:scale-[0.98] flex items-center justify-center gap-sm mt-md"
             >
-              {pending ? "Processing…" : payment === "credit" ? "Place Due Order" : "Complete Order"}
+              {pending ? "Processing…" : isDue ? "Place Due Order" : "Complete Order"}
               {!pending && <Icon name="arrow_forward" />}
             </button>
           </div>
@@ -323,14 +357,165 @@ function PayOption({
   return (
     <button
       onClick={onClick}
+      title={label}
       className={
         active
-          ? "bg-primary/10 border-2 border-primary py-sm rounded-lg flex flex-col items-center justify-center gap-xs transition-colors"
-          : "bg-surface border border-outline-variant py-sm rounded-lg flex flex-col items-center justify-center gap-xs hover:border-primary hover:bg-primary/5 transition-colors group"
+          ? "bg-primary/10 border-2 border-primary py-sm px-1 rounded-lg flex flex-col items-center justify-center gap-xs transition-colors min-w-0"
+          : "bg-surface border border-outline-variant py-sm px-1 rounded-lg flex flex-col items-center justify-center gap-xs hover:border-primary hover:bg-primary/5 transition-colors group min-w-0"
       }
     >
       <Icon name={icon} className={active ? "text-primary" : "text-on-surface-variant group-hover:text-primary transition-colors"} />
-      <span className={`font-label-md text-label-md ${active ? "text-primary font-semibold" : "text-on-surface"}`}>{label}</span>
+      <span className={`font-label-md text-label-md truncate max-w-full ${active ? "text-primary font-semibold" : "text-on-surface"}`}>{label}</span>
     </button>
+  );
+}
+
+function CustomerPicker({
+  customers,
+  value,
+  onChange,
+}: {
+  customers: PosCustomer[];
+  value: PosCustomer | null;
+  onChange: (c: PosCustomer | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const filtered = customers.filter((c) => c.name.toLowerCase().includes(query.trim().toLowerCase()));
+
+  function pick(c: PosCustomer | null) {
+    onChange(c);
+    setOpen(false);
+    setQuery("");
+    setAdding(false);
+  }
+  function add() {
+    setError(null);
+    startTransition(async () => {
+      const res = await quickAddCustomer(name, phone);
+      if (res.ok) {
+        pick(res.customer);
+        setName("");
+        setPhone("");
+      } else {
+        setError(res.error);
+      }
+    });
+  }
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center gap-sm px-sm py-xs rounded-lg border border-outline-variant hover:border-primary hover:bg-primary/5 transition-colors text-left"
+      >
+        <div className="w-8 h-8 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center shrink-0">
+          <Icon name="person" size={18} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-body-sm text-body-sm text-on-surface font-medium truncate">{value ? value.name : "Walk-in customer"}</p>
+          <p className="font-label-md text-label-md text-on-surface-variant">{value ? "Tap to change" : "Tap to attach a customer"}</p>
+        </div>
+        {value && (
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => { e.stopPropagation(); pick(null); }}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); pick(null); } }}
+            className="text-on-surface-variant hover:text-error shrink-0 cursor-pointer"
+          >
+            <Icon name="close" size={18} />
+          </span>
+        )}
+        {!value && <Icon name="expand_more" size={18} className="text-on-surface-variant shrink-0" />}
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 right-0 mt-1 z-40 bg-surface border border-outline-variant rounded-xl shadow-lg overflow-hidden">
+            {adding ? (
+              <div className="p-md space-y-sm">
+                <p className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wide">New customer</p>
+                <input
+                  autoFocus
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Full name"
+                  className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 font-body-sm text-body-sm text-on-surface focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="Phone (optional)"
+                  className="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 font-body-sm text-body-sm text-on-surface focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+                {error && <p className="font-body-sm text-body-sm text-error">{error}</p>}
+                <div className="flex gap-sm">
+                  <button
+                    type="button"
+                    onClick={add}
+                    disabled={pending || !name.trim()}
+                    className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:bg-primary/90 disabled:opacity-60 transition-colors"
+                  >
+                    <Icon name={pending ? "hourglass_empty" : "check"} size={16} /> {pending ? "Adding…" : "Add & select"}
+                  </button>
+                  <button type="button" onClick={() => setAdding(false)} className="px-3 py-2 rounded-lg border border-outline-variant text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-colors">
+                    Back
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="p-sm border-b border-outline-variant">
+                  <div className="flex items-center gap-sm px-sm py-1 rounded-lg border border-outline-variant">
+                    <Icon name="search" size={16} className="text-on-surface-variant" />
+                    <input
+                      autoFocus
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Search customers…"
+                      className="w-full bg-transparent border-none outline-none font-body-sm text-body-sm text-on-surface focus:ring-0 py-1"
+                    />
+                  </div>
+                </div>
+                <div className="max-h-56 overflow-y-auto">
+                  <button type="button" onClick={() => pick(null)} className="w-full flex items-center gap-sm px-md py-sm hover:bg-surface-container-low transition-colors text-left">
+                    <Icon name="person_outline" size={18} className="text-on-surface-variant" />
+                    <span className="font-body-sm text-body-sm text-on-surface">Walk-in customer</span>
+                  </button>
+                  {filtered.map((c) => (
+                    <button key={c.id} type="button" onClick={() => pick(c)} className="w-full flex items-center gap-sm px-md py-sm hover:bg-surface-container-low transition-colors text-left">
+                      <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 text-[11px] font-semibold">
+                        {c.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="font-body-sm text-body-sm text-on-surface truncate">{c.name}</span>
+                      {value?.id === c.id && <Icon name="check" size={16} className="text-primary ml-auto shrink-0" />}
+                    </button>
+                  ))}
+                  {filtered.length === 0 && (
+                    <p className="px-md py-sm font-body-sm text-body-sm text-on-surface-variant">No matches.</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setAdding(true); setError(null); setName(query); }}
+                  className="w-full flex items-center gap-sm px-md py-sm border-t border-outline-variant text-primary hover:bg-primary/5 transition-colors font-label-md text-label-md"
+                >
+                  <Icon name="add" size={18} /> Add new customer
+                </button>
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </div>
   );
 }

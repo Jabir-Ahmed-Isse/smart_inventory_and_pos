@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { getActiveOrg } from "@/lib/org";
-import { getProductsWithStock } from "@/lib/data";
+import { getProductsWithStock, getCustomers } from "@/lib/data";
+import { getActiveAccounts } from "@/lib/accounts/data";
+import { canSettlePayments } from "@/lib/rbac";
 import { PosTerminal, type CatalogItem } from "./PosTerminal";
 
 export const metadata = { title: "Point of Sale — Inventory Pro" };
@@ -26,7 +28,9 @@ export default async function PosPage() {
     );
   }
 
-  const products = org ? await getProductsWithStock(org.orgId) : [];
+  const [products, accounts, customers] = org
+    ? await Promise.all([getProductsWithStock(org.orgId), getActiveAccounts(org.orgId), getCustomers(org.orgId)])
+    : [[], [], []];
   const catalog: CatalogItem[] = products.map((p) => ({
     id: p.id,
     name: p.name,
@@ -36,6 +40,7 @@ export default async function PosPage() {
     imageUrl: p.imageUrl,
     available: p.qty,
   }));
+  const canPay = org ? canSettlePayments(org.role) : false;
 
   return (
     <div className="bg-background text-on-background h-screen flex flex-col overflow-hidden">
@@ -70,6 +75,9 @@ export default async function PosPage() {
         catalog={catalog}
         currency={org?.currency ?? "USD"}
         taxRate={org?.taxRate ?? 0}
+        accounts={accounts}
+        customers={customers.map((c) => ({ id: c.id, name: c.name }))}
+        canPay={canPay}
       />
     </div>
   );

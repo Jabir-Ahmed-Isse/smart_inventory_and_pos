@@ -12,11 +12,12 @@ const ROLE_INFO: Record<MemberRole, { desc: string; caps: string[] }> = {
   owner: { desc: "Full control of the workspace and billing.", caps: ["Everything admins can do", "Transfer or delete the workspace"] },
   admin: { desc: "Full system access except billing ownership.", caps: ["Manage users & roles", "All inventory, POS, finance & reports"] },
   manager: { desc: "Branch oversight & approvals.", caps: ["Manage inventory & purchasing", "Process sales & view reports"] },
-  staff: { desc: "Basic operations & POS.", caps: ["Process sales at POS", "View inventory & stock levels"] },
-  accountant: { desc: "Financial reporting only.", caps: ["View finance & reports", "No inventory or POS changes"] },
+  staff: { desc: "Sell at POS; places due orders.", caps: ["Ring up sales at POS", "Places unpaid (due) orders — a cashier settles them"] },
+  cashier: { desc: "Takes payments into accounts.", caps: ["Settle due orders into a bank / mobile account", "Sell at POS & take payment"] },
+  accountant: { desc: "Finance, reports & payments.", caps: ["Manage accounts & settle payments", "View finance & reports; no inventory changes"] },
 };
 
-const ROLE_ORDER: MemberRole[] = ["owner", "admin", "manager", "staff", "accountant"];
+const ROLE_ORDER: MemberRole[] = ["owner", "admin", "manager", "staff", "cashier", "accountant"];
 
 export default async function RolesPage() {
   await requireRole(["owner", "admin"]);
@@ -134,7 +135,8 @@ export default async function RolesPage() {
 const CREATABLE_ROLES: { value: MemberRole; label: string }[] = [
   { value: "admin", label: "Admin" },
   { value: "manager", label: "Manager" },
-  { value: "staff", label: "Staff" },
+  { value: "staff", label: "Staff (sells, places due orders)" },
+  { value: "cashier", label: "Cashier (takes payments)" },
   { value: "accountant", label: "Accountant" },
 ];
 

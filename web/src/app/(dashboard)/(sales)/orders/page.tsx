@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { Kpi } from "@/components/finance/Kpi";
 import { getActiveOrg } from "@/lib/org";
 import { requireRole } from "@/lib/rbac";
+import { getActiveAccounts, type AccountLite } from "@/lib/accounts/data";
 import { getSalesOrders, money, type SalesOrderRow, type SalesPayment } from "@/lib/data";
 import { MarkPaidButton } from "./MarkPaidButton";
 
@@ -9,16 +11,19 @@ export const metadata = { title: "Sales Orders — Inventory Pro" };
 
 const PILL = {
   paid: "bg-primary-container/20 text-primary border border-primary/20",
+  partial: "bg-secondary-container/30 text-secondary border border-secondary-container/40",
   due: "bg-tertiary-container/20 text-tertiary border border-tertiary-container/30",
   refunded: "bg-secondary-container/20 text-secondary border border-secondary-container/30",
   cancelled: "bg-error-container/20 text-error border border-error-container/30",
 };
 
-// Payment status is derived from whether the money was actually recorded.
+// Payment status is derived from how much money was actually recorded.
 function payState(o: SalesOrderRow): { label: string; cls: string } {
   if (o.status === "refunded") return { label: "Refunded", cls: PILL.refunded };
   if (o.status === "cancelled") return { label: "Cancelled", cls: PILL.cancelled };
-  return o.paid ? { label: "Paid", cls: PILL.paid } : { label: "Due", cls: PILL.due };
+  if (o.paid) return { label: "Paid", cls: PILL.paid };
+  if (o.partiallyPaid) return { label: "Partial", cls: PILL.partial };
+  return { label: "Due", cls: PILL.due };
 }
 
 const PAY_LABEL: Record<NonNullable<SalesPayment>, string> = {
@@ -26,17 +31,21 @@ const PAY_LABEL: Record<NonNullable<SalesPayment>, string> = {
   card: "Card",
   mobile: "Mobile",
   credit: "Credit",
+  bank: "Bank",
 };
 
 export default async function OrdersPage() {
-  await requireRole(["owner", "admin", "manager", "accountant"]);
+  // Cashiers reach this page to settle payments; staff do not (they only sell).
+  await requireRole(["owner", "admin", "manager", "accountant", "cashier"]);
   const org = await getActiveOrg();
-  const orders = org ? await getSalesOrders(org.orgId) : [];
+  const [orders, accounts] = org
+    ? await Promise.all([getSalesOrders(org.orgId), getActiveAccounts(org.orgId)])
+    : [[], []];
   const currency = org?.currency ?? "USD";
 
   const due = orders.filter((o) => o.isDue);
-  const dueTotal = due.reduce((s, o) => s + o.total, 0);
-  const paidTotal = orders.filter((o) => o.paid).reduce((s, o) => s + o.total, 0);
+  const dueTotal = due.reduce((s, o) => s + o.dueAmount, 0); // remaining balances
+  const paidTotal = orders.reduce((s, o) => s + o.paidAmount, 0); // actually collected (incl. partials)
 
   return (
     <main className="flex-1 p-md md:p-lg bg-surface-container-lowest">
@@ -110,7 +119,11 @@ export default async function OrdersPage() {
           <tbody className="divide-y divide-outline-variant/60 bg-surface-container-lowest">
             {orders.map((o) => (
               <tr key={o.id} className="hover:bg-surface-container-low transition-colors">
-                <td className="p-md font-mono text-body-sm text-on-surface">{o.orderNumber}</td>
+                <td className="p-md font-mono text-body-sm">
+                  <Link href={`/orders/${o.id}`} className="text-primary hover:underline inline-flex items-center gap-1">
+                    {o.orderNumber}
+                  </Link>
+                </td>
                 <td className="p-md font-body-sm text-body-sm text-on-surface-variant">{o.customerName}</td>
                 <td className="p-md font-body-sm text-body-sm text-on-surface-variant whitespace-nowrap">
                   <div>{o.date}</div>
@@ -124,12 +137,26 @@ export default async function OrdersPage() {
                     {payState(o).label}
                   </span>
                 </td>
-                <td className="p-md text-right font-body-sm text-body-sm font-semibold text-on-surface">{money(o.total, currency)}</td>
+                <td className="p-md text-right font-body-sm text-body-sm text-on-surface">
+                  <div className="font-semibold">{money(o.total, currency)}</div>
+                  {o.isDue && o.partiallyPaid && (
+                    <div className="text-xs text-tertiary mt-0.5">{money(o.dueAmount, currency)} due</div>
+                  )}
+                </td>
                 <td className="p-md text-right">
                   {o.isDue ? (
-                    <MarkPaidButton orderId={o.id} orderNumber={o.orderNumber} />
+                    <MarkPaidButton
+                      orderId={o.id}
+                      orderNumber={o.orderNumber}
+                      total={o.total}
+                      due={o.dueAmount}
+                      currency={currency}
+                      accounts={accounts}
+                    />
                   ) : showPay ? null : (
-                    <span className="text-on-surface-variant text-xs">—</span>
+                    <Link href={`/orders/${o.id}`} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary font-label-md text-label-md transition-colors">
+                      <Icon name="visibility" size={16} /> View
+                    </Link>
                   )}
                 </td>
               </tr>

@@ -21,7 +21,9 @@ const MGR: UserRole[] = ["owner", "admin", "manager"];
 const MGR_ACC: UserRole[] = ["owner", "admin", "manager", "accountant"];
 const FIN: UserRole[] = ["owner", "admin", "accountant"];
 const ADMIN: UserRole[] = ["owner", "admin"];
-const POS: UserRole[] = ["owner", "admin", "manager", "staff"];
+const POS: UserRole[] = ["owner", "admin", "manager", "staff", "cashier"];
+// Cashiers settle payments, so they see Orders too (but not the Sales dashboard).
+const ORDERS: UserRole[] = ["owner", "admin", "manager", "accountant", "cashier"];
 
 /** Grouped primary navigation. `roles` gates visibility; omit = everyone. */
 export const navGroups: NavGroup[] = [
@@ -54,7 +56,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { label: "Sales", icon: "trending_up", href: "/sales", roles: MGR_ACC },
       { label: "Point of Sale", icon: "point_of_sale", href: "/pos", roles: POS },
-      { label: "Orders", icon: "receipt_long", href: "/orders", roles: MGR_ACC },
+      { label: "Orders", icon: "receipt_long", href: "/orders", roles: ORDERS },
       { label: "Customers", icon: "groups", href: "/customers" },
       { label: "Loyalty", icon: "loyalty", href: "/loyalty", roles: MGR },
     ],

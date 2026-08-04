@@ -6,7 +6,7 @@ import { getActiveOrg } from "@/lib/org";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
-const VALID_ROLES = ["owner", "admin", "manager", "staff", "accountant"] as const;
+const VALID_ROLES = ["owner", "admin", "manager", "staff", "cashier", "accountant"] as const;
 type Role = (typeof VALID_ROLES)[number];
 
 export async function updateMemberRole(userId: string, role: string): Promise<ActionResult> {

@@ -31,3 +31,27 @@ export async function createCustomer(formData: FormData): Promise<CustomerResult
   revalidatePath("/dashboard");
   return { ok: true };
 }
+
+export type QuickCustomerResult =
+  | { ok: true; customer: { id: string; name: string } }
+  | { ok: false; error: string };
+
+/** Minimal name(+phone) create that returns the new customer — for the POS picker. */
+export async function quickAddCustomer(name: string, phone?: string): Promise<QuickCustomerResult> {
+  const org = await getActiveOrg();
+  if (!org) return { ok: false, error: "You are not signed in." };
+  const clean = name.trim();
+  if (!clean) return { ok: false, error: "Customer name is required." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("customers")
+    .insert({ organization_id: org.orgId, name: clean, phone: (phone ?? "").trim() || null })
+    .select("id, name")
+    .single();
+  if (error || !data) return { ok: false, error: error?.message ?? "Could not add customer." };
+
+  revalidatePath("/customers");
+  revalidatePath("/pos");
+  return { ok: true, customer: { id: data.id, name: data.name } };
+}

@@ -605,8 +605,53 @@ export type Database = {
           },
         ]
       }
+      payment_accounts: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          kind: Database["public"]["Enums"]["account_kind"]
+          name: string
+          opening_balance: number
+          organization_id: string
+          provider: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          kind?: Database["public"]["Enums"]["account_kind"]
+          name: string
+          opening_balance?: number
+          organization_id: string
+          provider?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          kind?: Database["public"]["Enums"]["account_kind"]
+          name?: string
+          opening_balance?: number
+          organization_id?: string
+          provider?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_accounts_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_orders: {
         Row: {
+          account_id: string | null
           created_at: string
           customer_id: string | null
           discount: number
@@ -623,6 +668,7 @@ export type Database = {
           warehouse_id: string | null
         }
         Insert: {
+          account_id?: string | null
           created_at?: string
           customer_id?: string | null
           discount?: number
@@ -639,6 +685,7 @@ export type Database = {
           warehouse_id?: string | null
         }
         Update: {
+          account_id?: string | null
           created_at?: string
           customer_id?: string | null
           discount?: number
@@ -785,6 +832,7 @@ export type Database = {
       }
       transactions: {
         Row: {
+          account_id: string | null
           amount: number
           category: string | null
           created_at: string
@@ -796,6 +844,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          account_id?: string | null
           amount?: number
           category?: string | null
           created_at?: string
@@ -807,6 +856,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          account_id?: string | null
           amount?: number
           category?: string | null
           created_at?: string
@@ -942,7 +992,8 @@ export type Database = {
         | "damage"
         | "lost"
         | "return"
-      payment_method: "cash" | "card" | "mobile" | "credit"
+      account_kind: "bank" | "mobile" | "cash"
+      payment_method: "cash" | "card" | "mobile" | "credit" | "bank"
       product_status: "active" | "inactive"
       purchase_status:
         | "draft"
@@ -958,7 +1009,7 @@ export type Database = {
         | "refunded"
         | "cancelled"
       txn_type: "income" | "expense"
-      user_role: "owner" | "admin" | "manager" | "staff" | "accountant"
+      user_role: "owner" | "admin" | "manager" | "staff" | "accountant" | "cashier"
     }
     CompositeTypes: {
       [_ in never]: never

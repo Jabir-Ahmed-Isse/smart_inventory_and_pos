@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateMemberRole } from "@/lib/members/actions";
 
-const ROLES = ["owner", "admin", "manager", "staff", "accountant"] as const;
+const ROLES = ["owner", "admin", "manager", "staff", "cashier", "accountant"] as const;
 
 export function RoleSelect({
   userId,

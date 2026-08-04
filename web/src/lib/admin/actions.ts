@@ -7,7 +7,7 @@ import { getPlatformContext } from "@/lib/admin/data";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
-const ORG_ROLES = ["admin", "manager", "staff", "accountant"] as const;
+const ORG_ROLES = ["admin", "manager", "staff", "cashier", "accountant"] as const;
 const MISSING_KEY =
   "User creation isn't configured yet. Add SUPABASE_SERVICE_ROLE_KEY to the server environment (.env.local) and restart.";
 

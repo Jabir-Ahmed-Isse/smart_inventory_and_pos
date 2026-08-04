@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveOrg } from "@/lib/org";
+import { canSettlePayments } from "@/lib/rbac";
 
 export type CheckoutItem = {
   productId: string;
@@ -11,22 +12,27 @@ export type CheckoutItem = {
 };
 
 export type CheckoutResult =
-  | { ok: true; orderNumber: string; total: number }
+  | { ok: true; orderNumber: string; total: number; due: boolean }
   | { ok: false; error: string };
 
-type PayMethod = "cash" | "card" | "mobile" | "credit";
+type PayMethod = "cash" | "card" | "mobile" | "credit" | "bank";
+type AccountKind = "bank" | "mobile" | "cash";
+
+const methodForKind = (kind: AccountKind): PayMethod =>
+  kind === "mobile" ? "mobile" : kind === "cash" ? "cash" : "bank";
 
 /**
- * Records a completed POS sale for the signed-in user's org:
- *  1. sales_order + sales_order_items
- *  2. decrements inventory_levels (from the warehouse with most stock)
- *  3. logs a "sale" stock_movement per line
- *  4. posts the revenue as a finance transaction
- * All tenant-scoped by RLS.
+ * Records a POS sale for the signed-in user's org.
+ *  - Staff (or no account selected) → a DUE order: stock leaves, no cash counted,
+ *    settled later by a cashier/accountant.
+ *  - A permitted role selecting an account → a PAID order routed into that account.
+ * Then: sales_order + items, inventory decrement, "sale" movement per line, and
+ * (for paid orders) an income transaction tagged with the account. RLS-scoped.
  */
 export async function checkout(
   items: CheckoutItem[],
-  paymentMethod: PayMethod,
+  accountId: string | null,
+  customerId?: string | null,
 ): Promise<CheckoutResult> {
   const org = await getActiveOrg();
   if (!org) return { ok: false, error: "You are not signed in." };
@@ -35,6 +41,23 @@ export async function checkout(
   if (clean.length === 0) return { ok: false, error: "Cart is empty." };
 
   const supabase = await createClient();
+
+  // Decide whether this is a paid or due sale, and validate the account.
+  const canPay = canSettlePayments(org.role);
+  let paymentMethod: PayMethod = "credit";
+  let paidAccountId: string | null = null;
+  if (canPay && accountId) {
+    const { data: acc } = await supabase
+      .from("payment_accounts")
+      .select("id, kind, is_active")
+      .eq("organization_id", org.orgId)
+      .eq("id", accountId)
+      .maybeSingle();
+    if (!acc || !acc.is_active) return { ok: false, error: "That payment account is unavailable." };
+    paidAccountId = acc.id;
+    paymentMethod = methodForKind(acc.kind);
+  }
+  const isDue = paidAccountId === null;
 
   const { data: orgRow } = await supabase
     .from("organizations")
@@ -48,19 +71,25 @@ export async function checkout(
   const total = Math.round((subtotal + tax) * 100) / 100;
   const orderNumber = `ORD-${Date.now().toString().slice(-9)}`;
 
+  const orderPayload = {
+    organization_id: org.orgId,
+    order_number: orderNumber,
+    // Paid orders are completed; a due order is "processing" until settled.
+    status: (isDue ? "processing" : "completed") as "processing" | "completed",
+    subtotal,
+    tax,
+    total,
+    payment_method: paymentMethod,
+    user_id: org.userId,
+    // Only tag the account for a paid order, so a plain due sale still inserts
+    // cleanly on a database where the account_id column isn't present yet.
+    ...(paidAccountId ? { account_id: paidAccountId } : {}),
+    ...(customerId ? { customer_id: customerId } : {}),
+  };
+
   const { data: order, error: orderErr } = await supabase
     .from("sales_orders")
-    .insert({
-      organization_id: org.orgId,
-      order_number: orderNumber,
-      // Paid orders are completed; a due (credit) order is "processing" until settled.
-      status: paymentMethod === "credit" ? "processing" : "completed",
-      subtotal,
-      tax,
-      total,
-      payment_method: paymentMethod,
-      user_id: org.userId,
-    })
+    .insert(orderPayload)
     .select("id")
     .single();
 
@@ -110,10 +139,10 @@ export async function checkout(
     }
   }
 
-  // Post revenue to finance — only for paid orders. A "credit" (due) order is
-  // an unpaid sale: stock leaves and the order is recorded, but no cash is
-  // counted until it's settled, so we skip the income transaction.
-  if (paymentMethod !== "credit") {
+  // Post revenue to finance — only for paid orders, tagged with the receiving
+  // account. A due order is an unpaid sale: stock leaves and the order is
+  // recorded, but no money is counted until a cashier settles it.
+  if (!isDue) {
     await supabase.from("transactions").insert({
       organization_id: org.orgId,
       type: "income",
@@ -121,6 +150,7 @@ export async function checkout(
       description: `POS sale ${orderNumber}`,
       amount: total,
       reference: orderNumber,
+      account_id: paidAccountId,
       user_id: org.userId,
     });
   }
@@ -132,23 +162,36 @@ export async function checkout(
   revalidatePath("/pos");
   revalidatePath("/orders");
 
-  return { ok: true, orderNumber, total };
+  return { ok: true, orderNumber, total, due: isDue };
 }
 
 export type PayResult = { ok: true } | { ok: false; error: string };
 
 /**
- * Settles a due (credit) order: marks it completed and posts the deferred
- * income to finance. Guarded so an already-settled order can't be paid twice.
+ * Records a payment against a due order into a chosen account. Supports partial
+ * payments: the amount is posted as income and, once cumulative payments cover
+ * the order total, the order is marked completed. Only a cashier/accountant (or
+ * an owner/admin/manager) may take payment — staff cannot.
+ *
+ * @param amount  the amount being paid now; omit/0 = pay the full remaining balance.
  */
-export async function markSalePaid(orderId: string, orderNumber: string): Promise<PayResult> {
+export async function markSalePaid(
+  orderId: string,
+  orderNumber: string,
+  accountId: string,
+  amount?: number,
+): Promise<PayResult> {
   const org = await getActiveOrg();
   if (!org) return { ok: false, error: "You are not signed in." };
+  if (!canSettlePayments(org.role)) {
+    return { ok: false, error: "Only a cashier or accountant can take payments." };
+  }
+  if (!accountId) return { ok: false, error: "Choose the account the payment was received into." };
 
   const supabase = await createClient();
 
-  // Read the order and check for an existing income record in parallel.
-  const [orderRes, incomeRes] = await Promise.all([
+  // Read the order, verify the account, and total what's already been paid.
+  const [orderRes, incomeRes, accRes] = await Promise.all([
     supabase
       .from("sales_orders")
       .select("id, order_number, total, status")
@@ -157,11 +200,16 @@ export async function markSalePaid(orderId: string, orderNumber: string): Promis
       .maybeSingle(),
     supabase
       .from("transactions")
-      .select("id")
+      .select("amount")
       .eq("organization_id", org.orgId)
       .eq("type", "income")
-      .eq("reference", orderNumber)
-      .limit(1),
+      .eq("reference", orderNumber),
+    supabase
+      .from("payment_accounts")
+      .select("id, kind, is_active")
+      .eq("organization_id", org.orgId)
+      .eq("id", accountId)
+      .maybeSingle(),
   ]);
 
   const order = orderRes.data;
@@ -169,25 +217,38 @@ export async function markSalePaid(orderId: string, orderNumber: string): Promis
   if (order.status === "cancelled" || order.status === "refunded") {
     return { ok: false, error: `Cannot settle a ${order.status} order.` };
   }
-  // "Paid" = an income transaction exists (source of truth), so no double-pay.
-  if ((incomeRes.data ?? []).length > 0) {
-    return { ok: false, error: "This order is already paid." };
-  }
+  const acc = accRes.data;
+  if (!acc || !acc.is_active) return { ok: false, error: "That payment account is unavailable." };
 
-  // The two writes are independent — run them together.
+  const alreadyPaid = (incomeRes.data ?? []).reduce((s, t) => s + Number(t.amount), 0);
+  const remaining = Math.round((order.total - alreadyPaid) * 100) / 100;
+  if (remaining <= 0.005) return { ok: false, error: "This order is already fully paid." };
+
+  // No amount (or over-payment) = settle the whole remaining balance.
+  let pay = !amount || amount <= 0 ? remaining : Math.round(amount * 100) / 100;
+  if (pay > remaining) pay = remaining;
+
+  const fullyPaid = alreadyPaid + pay >= order.total - 0.005;
+
   const [updRes, txRes] = await Promise.all([
     supabase
       .from("sales_orders")
-      .update({ status: "completed" })
+      // Complete only when the balance is cleared; always record the latest account used.
+      .update({
+        status: fullyPaid ? "completed" : "processing",
+        account_id: acc.id,
+        payment_method: methodForKind(acc.kind),
+      })
       .eq("organization_id", org.orgId)
       .eq("id", orderId),
     supabase.from("transactions").insert({
       organization_id: org.orgId,
       type: "income",
       category: "Sales Revenue",
-      description: `Payment received — ${order.order_number}`,
-      amount: order.total,
+      description: `${fullyPaid ? "Payment received" : "Part payment"} — ${order.order_number}`,
+      amount: pay,
       reference: order.order_number,
+      account_id: acc.id,
       user_id: org.userId,
     }),
   ]);
@@ -195,8 +256,23 @@ export async function markSalePaid(orderId: string, orderNumber: string): Promis
   if (txRes.error) return { ok: false, error: txRes.error.message };
 
   revalidatePath("/orders");
+  revalidatePath(`/orders/${orderId}`);
   revalidatePath("/finance");
   revalidatePath("/dashboard");
   revalidatePath("/reports");
   return { ok: true };
+}
+
+/**
+ * Form-action wrapper for markSalePaid. Using a real server action as the form
+ * `action` makes revalidatePath auto-refresh the Orders list on success — the
+ * reliable refresh path in this app (vs. a manual router.refresh()).
+ */
+export async function settleOrderAction(_prev: PayResult | null, formData: FormData): Promise<PayResult> {
+  const orderId = String(formData.get("orderId") ?? "");
+  const orderNumber = String(formData.get("orderNumber") ?? "");
+  const accountId = String(formData.get("accountId") ?? "");
+  const amountRaw = String(formData.get("amount") ?? "").trim();
+  const amount = amountRaw ? Number(amountRaw) : undefined;
+  return markSalePaid(orderId, orderNumber, accountId, amount);
 }

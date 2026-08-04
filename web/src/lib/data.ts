@@ -723,7 +723,7 @@ export async function getAuditLogs(orgId: string, limit = 100): Promise<LogRow[]
 // ---------------------------------------------------------------------------
 // Members / roles
 // ---------------------------------------------------------------------------
-export type MemberRole = "owner" | "admin" | "manager" | "staff" | "accountant";
+export type MemberRole = "owner" | "admin" | "manager" | "staff" | "cashier" | "accountant";
 export type MemberRow = {
   userId: string;
   name: string;
@@ -929,7 +929,7 @@ export async function getReportsData(orgId: string): Promise<ReportsData> {
 // Sales orders (with due/pending tracking)
 // ---------------------------------------------------------------------------
 export type SalesStatus = "draft" | "processing" | "completed" | "refunded" | "cancelled";
-export type SalesPayment = "cash" | "card" | "mobile" | "credit" | null;
+export type SalesPayment = "cash" | "card" | "mobile" | "credit" | "bank" | null;
 
 export type SalesOrderRow = {
   id: string;
@@ -940,8 +940,11 @@ export type SalesOrderRow = {
   paymentMethod: SalesPayment;
   date: string;
   time: string;
-  paid: boolean; // an income transaction exists for this order (money received)
-  isDue: boolean; // unpaid and still owed (not refunded/cancelled)
+  paidAmount: number; // sum of income recorded against this order
+  dueAmount: number; // remaining balance owed
+  paid: boolean; // fully settled (nothing left owed)
+  isDue: boolean; // still owes something (fully or partially unpaid)
+  partiallyPaid: boolean; // some money in, but not the whole total
 };
 
 export async function getSalesOrders(orgId: string, limit = 100): Promise<SalesOrderRow[]> {
@@ -953,17 +956,20 @@ export async function getSalesOrders(orgId: string, limit = 100): Promise<SalesO
       .eq("organization_id", orgId)
       .order("created_at", { ascending: false })
       .limit(limit),
-    // Source of truth for "paid": income transactions referencing the order.
+    // Source of truth for payments: income transactions referencing the order.
+    // Summed per order so partial settlements accumulate.
     supabase
       .from("transactions")
-      .select("reference")
+      .select("reference, amount")
       .eq("organization_id", orgId)
       .eq("type", "income"),
   ]);
 
-  const paidRefs = new Set(
-    (txRes.data ?? []).map((t) => t.reference).filter((r): r is string => !!r),
-  );
+  const paidByRef = new Map<string, number>();
+  for (const t of txRes.data ?? []) {
+    if (!t.reference) continue;
+    paidByRef.set(t.reference, (paidByRef.get(t.reference) ?? 0) + Number(t.amount));
+  }
 
   const rows = (ordersRes.data ?? []) as unknown as {
     id: string;
@@ -976,7 +982,11 @@ export async function getSalesOrders(orgId: string, limit = 100): Promise<SalesO
   }[];
 
   return rows.map((r) => {
-    const paid = paidRefs.has(r.order_number);
+    const paidAmount = Math.round((paidByRef.get(r.order_number) ?? 0) * 100) / 100;
+    const dueAmount = Math.max(0, Math.round((r.total - paidAmount) * 100) / 100);
+    const settled = r.status !== "cancelled" && r.status !== "refunded";
+    const paid = settled && dueAmount <= 0.005;
+    const isDue = settled && dueAmount > 0.005;
     return {
       id: r.id,
       orderNumber: r.order_number,
@@ -986,10 +996,144 @@ export async function getSalesOrders(orgId: string, limit = 100): Promise<SalesO
       paymentMethod: r.payment_method,
       date: fmtDate(r.created_at),
       time: fmtTime(r.created_at),
+      paidAmount,
+      dueAmount,
       paid,
-      isDue: !paid && r.status !== "cancelled" && r.status !== "refunded",
+      isDue,
+      partiallyPaid: isDue && paidAmount > 0.005,
     };
   });
+}
+
+// ---------------------------------------------------------------------------
+// Single sales order — items + payment history
+// ---------------------------------------------------------------------------
+export type OrderItemRow = {
+  name: string;
+  sku: string | null;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+};
+export type OrderPayment = {
+  id: string;
+  amount: number;
+  date: string;
+  time: string;
+  description: string | null;
+  accountName: string | null;
+};
+export type SalesOrderDetail = {
+  id: string;
+  orderNumber: string;
+  status: SalesStatus;
+  paymentMethod: SalesPayment;
+  subtotal: number;
+  discount: number;
+  tax: number;
+  total: number;
+  createdAt: string;
+  date: string;
+  time: string;
+  customer: { name: string; phone: string | null; email: string | null } | null;
+  warehouseName: string | null;
+  items: OrderItemRow[];
+  payments: OrderPayment[];
+  paidAmount: number;
+  dueAmount: number;
+  paid: boolean;
+  isDue: boolean;
+  partiallyPaid: boolean;
+};
+
+export async function getSalesOrderDetail(orgId: string, id: string): Promise<SalesOrderDetail | null> {
+  const supabase = await createClient();
+
+  const { data: o } = await supabase
+    .from("sales_orders")
+    .select(
+      "id, order_number, status, payment_method, subtotal, discount, tax, total, created_at, customers(name, phone, email), warehouses(name), sales_order_items(quantity, unit_price, line_total, products(name, sku))",
+    )
+    .eq("organization_id", orgId)
+    .eq("id", id)
+    .maybeSingle();
+  if (!o) return null;
+
+  // Payments = income transactions referencing this order. Tolerate a missing
+  // account_id column (pre-migration) by retrying without it.
+  let payRows: { id: string; amount: number; created_at: string; description: string | null; account_id: string | null }[] = [];
+  const payWithAcc = await supabase
+    .from("transactions")
+    .select("id, amount, created_at, description, account_id")
+    .eq("organization_id", orgId)
+    .eq("type", "income")
+    .eq("reference", o.order_number)
+    .order("created_at", { ascending: true });
+  if (payWithAcc.error) {
+    const payNoAcc = await supabase
+      .from("transactions")
+      .select("id, amount, created_at, description")
+      .eq("organization_id", orgId)
+      .eq("type", "income")
+      .eq("reference", o.order_number)
+      .order("created_at", { ascending: true });
+    payRows = (payNoAcc.data ?? []).map((t) => ({ ...t, account_id: null }));
+  } else {
+    payRows = payWithAcc.data ?? [];
+  }
+
+  const accById = new Map<string, string>();
+  const accRes = await supabase.from("payment_accounts").select("id, name").eq("organization_id", orgId);
+  if (!accRes.error) for (const a of accRes.data ?? []) accById.set(a.id, a.name);
+
+  const customer = Array.isArray(o.customers) ? o.customers[0] : o.customers;
+  const warehouse = Array.isArray(o.warehouses) ? o.warehouses[0] : o.warehouses;
+  const items: OrderItemRow[] = (o.sales_order_items ?? []).map((li) => {
+    const p = Array.isArray(li.products) ? li.products[0] : li.products;
+    return {
+      name: p?.name ?? "—",
+      sku: p?.sku ?? null,
+      quantity: li.quantity,
+      unitPrice: li.unit_price,
+      lineTotal: li.line_total,
+    };
+  });
+
+  const paidAmount = Math.round(payRows.reduce((s, t) => s + Number(t.amount), 0) * 100) / 100;
+  const dueAmount = Math.max(0, Math.round((o.total - paidAmount) * 100) / 100);
+  const settled = o.status !== "cancelled" && o.status !== "refunded";
+  const paid = settled && dueAmount <= 0.005;
+  const isDue = settled && dueAmount > 0.005;
+
+  return {
+    id: o.id,
+    orderNumber: o.order_number,
+    status: o.status,
+    paymentMethod: o.payment_method,
+    subtotal: o.subtotal,
+    discount: o.discount,
+    tax: o.tax,
+    total: o.total,
+    createdAt: o.created_at,
+    date: fmtDate(o.created_at),
+    time: fmtTime(o.created_at),
+    customer: customer ? { name: customer.name, phone: customer.phone, email: customer.email } : null,
+    warehouseName: warehouse?.name ?? null,
+    items,
+    payments: payRows.map((t) => ({
+      id: t.id,
+      amount: t.amount,
+      date: fmtDate(t.created_at),
+      time: fmtTime(t.created_at),
+      description: t.description,
+      accountName: t.account_id ? accById.get(t.account_id) ?? null : null,
+    })),
+    paidAmount,
+    dueAmount,
+    paid,
+    isDue,
+    partiallyPaid: isDue && paidAmount > 0.005,
+  };
 }
 
 // ---------------------------------------------------------------------------
