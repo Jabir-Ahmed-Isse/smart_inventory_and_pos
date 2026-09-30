@@ -1,19 +1,22 @@
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { Kpi } from "@/components/finance/Kpi";
-import { getActiveOrg } from "@/lib/org";
+import { getActiveOrg, getOrgProfile } from "@/lib/org";
 import { requireRole } from "@/lib/rbac";
 import { getWarehousesWithStats, getMembers, compactMoney } from "@/lib/data";
+import { CompanyProfileForm } from "@/components/settings/CompanyProfileForm";
+import { WorkspaceTabs } from "@/components/settings/WorkspaceTabs";
 
 export const metadata = { title: "Company Workspace — Inventory Pro" };
 
 export default async function WorkspacePage() {
   await requireRole(["owner", "admin"]);
   const org = await getActiveOrg();
-  const [warehouses, members] = org
-    ? await Promise.all([getWarehousesWithStats(org.orgId), getMembers(org.orgId, org.userId)])
-    : [[], []];
+  const [warehouses, members, profile] = org
+    ? await Promise.all([getWarehousesWithStats(org.orgId), getMembers(org.orgId, org.userId), getOrgProfile(org.orgId)])
+    : [[], [], null];
   const currency = org?.currency ?? "USD";
+  const canManage = org?.role === "owner" || org?.role === "admin";
 
   const regions = new Set(
     warehouses.map((w) => (w.location ?? "").split(",").pop()?.trim()).filter(Boolean),
@@ -42,7 +45,18 @@ export default async function WorkspacePage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+      <WorkspaceTabs
+        profile={
+          profile ? (
+            <div className="pb-md">
+              <CompanyProfileForm profile={profile} canManage={canManage} />
+            </div>
+          ) : (
+            <p className="text-body-md text-on-surface-variant">Sign in to manage company profile.</p>
+          )
+        }
+        workspace={
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
         {/* Left */}
         <div className="lg:col-span-8 flex flex-col gap-gutter">
           {/* Metrics */}
@@ -141,6 +155,8 @@ export default async function WorkspacePage() {
           </div>
         </div>
       </div>
+        }
+      />
     </main>
   );
 }

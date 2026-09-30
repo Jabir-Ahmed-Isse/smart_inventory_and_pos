@@ -48,6 +48,7 @@ export const navGroups: NavGroup[] = [
       { label: "Locations", icon: "location_on", href: "/locations", roles: MGR },
       { label: "Stock Movements", icon: "sync_alt", href: "/stock-movements", roles: MGR },
       { label: "Transfers", icon: "swap_horiz", href: "/transfers", roles: MGR },
+      { label: "Branch Stock", icon: "inventory", href: "/branch-stock", roles: POS },
       { label: "Stocktake", icon: "fact_check", href: "/stocktake", roles: MGR },
     ],
   },
@@ -59,6 +60,7 @@ export const navGroups: NavGroup[] = [
       { label: "Orders", icon: "receipt_long", href: "/orders", roles: ORDERS },
       { label: "Customers", icon: "groups", href: "/customers" },
       { label: "Loyalty", icon: "loyalty", href: "/loyalty", roles: MGR },
+      { label: "Sales Returns", icon: "keyboard_return", href: "/sales/returns", roles: MGR_ACC },
     ],
   },
   {
@@ -71,8 +73,18 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
+    title: "People",
+    items: [
+      { label: "Human Resources", icon: "groups", href: "/hr", roles: MGR_ACC },
+      { label: "Payroll", icon: "payments", href: "/payroll", roles: FIN },
+    ],
+  },
+  {
     title: "Finance",
     items: [
+      { label: "Accounting", icon: "account_balance", href: "/accounting", roles: FIN },
+      { label: "Expenses", icon: "receipt_long", href: "/expenses", roles: MGR_ACC },
+      { label: "Fixed Assets", icon: "inventory", href: "/assets", roles: FIN },
       { label: "Finance", icon: "payments", href: "/finance", roles: FIN },
       { label: "Reports", icon: "analytics", href: "/reports", roles: MGR_ACC },
     ],
@@ -85,9 +97,10 @@ export const navGroups: NavGroup[] = [
     title: "Administration",
     items: [
       { label: "Overview", icon: "admin_panel_settings", href: "/admin", roles: ADMIN },
+      { label: "Branches", icon: "store", href: "/branches", roles: ADMIN },
+      { label: "Branch Comparison", icon: "leaderboard", href: "/branches/compare", roles: MGR_ACC },
       { label: "Roles & Permissions", icon: "manage_accounts", href: "/roles", roles: ADMIN },
       { label: "Workspace", icon: "business", href: "/workspace", roles: ADMIN },
-      { label: "Timesheets", icon: "schedule", href: "/timesheets" },
       { label: "Audit Logs", icon: "receipt_long", href: "/logs", roles: ADMIN },
     ],
   },
@@ -101,7 +114,9 @@ export const secondaryNav: NavItem[] = [
 ];
 
 /** Does a role have access to an item with these `roles`? (undefined = all). */
-export function roleCan(role: UserRole | undefined, roles?: UserRole[]): boolean {
-  if (!roles) return true;
-  return !!role && roles.includes(role);
+export function roleCan(effectiveRoles: UserRole[] | undefined, allowed?: UserRole[]): boolean {
+  if (!allowed) return true;
+  if (!effectiveRoles || effectiveRoles.length === 0) return false;
+  if (effectiveRoles.includes("owner")) return true;
+  return effectiveRoles.some((r) => allowed.includes(r));
 }

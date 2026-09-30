@@ -7,17 +7,9 @@ import { Icon } from "@/components/Icon";
 
 const TABS = [
   { label: "Overview", icon: "dashboard", href: "/finance" },
-  { label: "Transactions", icon: "receipt_long", href: "/finance/transactions" },
-  { label: "Income", icon: "trending_up", href: "/finance/income" },
-  { label: "Expenses", icon: "trending_down", href: "/finance/expenses" },
   { label: "Cash & Bank", icon: "account_balance", href: "/finance/cash-bank" },
-  { label: "Invoices", icon: "description", href: "/finance/invoices" },
-  { label: "Payments", icon: "payments", href: "/finance/payments" },
   { label: "Receivables", icon: "call_received", href: "/finance/receivables" },
   { label: "Payables", icon: "call_made", href: "/finance/payables" },
-  { label: "Profit & Loss", icon: "assessment", href: "/finance/profit-loss" },
-  { label: "Cash Flow", icon: "waterfall_chart", href: "/finance/cash-flow" },
-  { label: "AI Insights", icon: "auto_awesome", href: "/finance/ai-insights" },
 ];
 
 export function FinanceNav() {

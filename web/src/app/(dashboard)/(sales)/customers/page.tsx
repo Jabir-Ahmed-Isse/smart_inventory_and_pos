@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { getActiveOrg } from "@/lib/org";
 import { getCustomers, money, type CustomerRow } from "@/lib/data";
 import { AddCustomerDialog } from "./AddCustomerDialog";
+import { CustomerExportButton } from "@/components/customers/CustomerExportButton";
 
 export const metadata = { title: "Customers & CRM — Inventory Pro" };
 
@@ -42,10 +44,10 @@ export default async function CustomersPage() {
           </p>
         </div>
         <div className="flex items-center gap-md w-full md:w-auto">
-          <button className="flex-1 md:flex-none flex items-center justify-center gap-sm border border-outline-variant text-on-surface hover:bg-surface-container hover:border-outline px-lg py-sm rounded font-label-md text-label-md transition-all">
-            <Icon name="download" size={18} />
-            Export Data
-          </button>
+          <CustomerExportButton customers={customers} />
+          <Link href="/customers/import" className="flex-1 md:flex-none flex items-center justify-center gap-sm border border-outline-variant text-on-surface hover:bg-surface-container hover:border-outline px-lg py-sm rounded font-label-md text-label-md transition-all">
+            <Icon name="upload_file" size={18} /> Import
+          </Link>
           <AddCustomerDialog />
         </div>
       </div>

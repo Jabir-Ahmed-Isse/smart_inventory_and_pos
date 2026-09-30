@@ -31,6 +31,13 @@ export async function receiveStock(formData: FormData): Promise<ReceiveResult> {
   const poNumber = `PO-${Date.now().toString().slice(-9)}`;
   const total = Math.round(unitCost * quantity * 100) / 100;
 
+  // Branch of this purchase = the receiving warehouse's branch. Safe (null) on a
+  // database where warehouses.branch_id isn't there yet.
+  let branchId: string | null = null;
+  const whBranch = await supabase.from("warehouses").select("branch_id").eq("organization_id", org.orgId).eq("id", warehouseId).maybeSingle();
+  if (!whBranch.error) branchId = (whBranch.data as { branch_id?: string | null } | null)?.branch_id ?? null;
+  const withBranch = branchId ? { branch_id: branchId } : {};
+
   const { data: po, error: poErr } = await supabase
     .from("purchase_orders")
     .insert({
@@ -41,7 +48,8 @@ export async function receiveStock(formData: FormData): Promise<ReceiveResult> {
       status: "received",
       total,
       user_id: org.userId,
-    })
+      ...withBranch,
+    } as never)
     .select("id")
     .single();
 
@@ -90,7 +98,8 @@ export async function receiveStock(formData: FormData): Promise<ReceiveResult> {
       quantity,
       reference: poNumber,
       user_id: org.userId,
-    }),
+      ...withBranch,
+    } as never),
     total > 0
       ? supabase.from("transactions").insert({
           organization_id: org.orgId,
@@ -100,7 +109,8 @@ export async function receiveStock(formData: FormData): Promise<ReceiveResult> {
           amount: total,
           reference: poNumber,
           user_id: org.userId,
-        })
+          ...withBranch,
+        } as never)
       : Promise.resolve({ error: null }),
   ]);
 

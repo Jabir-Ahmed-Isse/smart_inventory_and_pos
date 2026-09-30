@@ -137,3 +137,27 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Print ONLY the POS receipt: hide everything, then reveal the receipt subtree.
+   Works no matter how deeply the receipt is nested (visibility cascades). */
+@media print {
+  body.printing-receipt * {
+    visibility: hidden !important;
+  }
+  body.printing-receipt .pos-receipt-print,
+  body.printing-receipt .pos-receipt-print * {
+    visibility: visible !important;
+  }
+  body.printing-receipt .pos-receipt-print {
+    position: absolute !important;
+    left: 0;
+    top: 0;
+    width: 80mm; /* standard thermal roll width */
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+  .pos-receipt-noprint {
+    display: none !important;
+  }
+}

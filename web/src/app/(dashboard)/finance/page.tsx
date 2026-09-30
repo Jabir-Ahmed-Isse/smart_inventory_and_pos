@@ -3,16 +3,22 @@ import { Icon } from "@/components/Icon";
 import { Kpi } from "@/components/finance/Kpi";
 import { RevenueExpenseBars, TrendLine, Donut } from "@/components/finance/Charts";
 import { RecordTransactionDialog } from "@/components/finance/RecordTransactionDialog";
+import { SyncLedgerButton } from "@/components/finance/SyncLedgerButton";
 import { getActiveOrg } from "@/lib/org";
+import { getActiveBranchId } from "@/lib/branches/context";
 import { money, compactMoney } from "@/lib/data";
 import { loadFinance, financeSummary } from "@/lib/finance/data";
+import { getActiveAccounts } from "@/lib/accounts/data";
 
 export const metadata = { title: "Finance Overview — Inventory Pro" };
 
 export default async function FinanceOverviewPage() {
   const org = await getActiveOrg();
   const currency = org?.currency ?? "USD";
-  const raw = org ? await loadFinance(org.orgId) : null;
+  const branchId = await getActiveBranchId();
+  const [raw, accounts] = org
+    ? await Promise.all([loadFinance(org.orgId, branchId), getActiveAccounts(org.orgId)])
+    : [null, []];
   const s = raw ? financeSummary(raw) : null;
 
   if (!s) {
@@ -35,10 +41,11 @@ export default async function FinanceOverviewPage() {
           </p>
         </div>
         <div className="flex items-center gap-sm self-start">
-          <Link href="/finance/transactions" className="flex items-center gap-2 px-4 py-2 border border-outline-variant rounded-lg text-on-surface hover:bg-surface-container-high transition-colors font-label-md text-label-md">
-            <Icon name="download" size={16} /> Export
+          <SyncLedgerButton />
+          <Link href="/accounting/journal" className="flex items-center gap-2 px-4 py-2 border border-outline-variant rounded-lg text-on-surface hover:bg-surface-container-high transition-colors font-label-md text-label-md">
+            <Icon name="menu_book" size={16} /> Journal
           </Link>
-          <RecordTransactionDialog />
+          <RecordTransactionDialog accounts={accounts} />
         </div>
       </div>
 
@@ -103,7 +110,7 @@ export default async function FinanceOverviewPage() {
         <div className="bg-surface border border-outline-variant rounded-xl shadow-sm overflow-hidden flex flex-col">
           <div className="p-md border-b border-outline-variant flex items-center justify-between">
             <h3 className="font-headline-lg text-headline-lg text-on-surface">Recent Transactions</h3>
-            <Link href="/finance/transactions" className="text-primary font-label-md text-label-md hover:underline">View all</Link>
+            <Link href="/accounting/journal" className="text-primary font-label-md text-label-md hover:underline">View all</Link>
           </div>
           <div className="flex-1 divide-y divide-outline-variant/60">
             {s.recent.length === 0 ? (
@@ -141,8 +148,8 @@ export default async function FinanceOverviewPage() {
             {s.receivables > 0 && <Insight icon="schedule" text={`${compactMoney(s.receivables, currency)} is owed to you — chase receivables to free up cash.`} />}
             {s.expenseBreakdown[0] && <Insight icon="savings" text={`${s.expenseBreakdown[0].category} is your biggest cost at ${s.expenseBreakdown[0].pct}% of spend.`} />}
           </ul>
-          <Link href="/finance/ai-insights" className="mt-md text-center py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:bg-primary/90 transition-colors">
-            Open AI Insights
+          <Link href="/ai" className="mt-md text-center py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:bg-primary/90 transition-colors">
+            Open AI Intelligence
           </Link>
         </div>
       </div>

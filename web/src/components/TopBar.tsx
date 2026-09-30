@@ -1,13 +1,30 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { Icon } from "./Icon";
+import { UserMenu } from "./UserMenu";
+import type { UserRole } from "@/lib/supabase/database.types";
 
-function initials(name: string) {
-  return name.split(" ").map((w) => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase() || "?";
-}
-
-export function TopBar({ onMenu, userName = "You", avatarUrl = null }: { onMenu: () => void; userName?: string; avatarUrl?: string | null }) {
+export function TopBar({
+  onMenu,
+  userName = "You",
+  avatarUrl = null,
+  branchSelector = null,
+  role,
+  roles,
+  branchLabel = null,
+  isPlatformAdmin = false,
+}: {
+  onMenu: () => void;
+  userName?: string;
+  avatarUrl?: string | null;
+  branchSelector?: ReactNode;
+  role?: UserRole;
+  roles?: UserRole[];
+  branchLabel?: string | null;
+  isPlatformAdmin?: boolean;
+}) {
   return (
     <header className="sticky top-0 z-40 w-full bg-surface/90 backdrop-blur-md border-b border-outline-variant shadow-sm flex justify-between items-center h-16 px-gutter">
       <div className="flex items-center gap-md">
@@ -29,6 +46,7 @@ export function TopBar({ onMenu, userName = "You", avatarUrl = null }: { onMenu:
             type="text"
           />
         </div>
+        {branchSelector}
       </div>
 
       <nav className="hidden md:flex gap-lg items-center">
@@ -57,20 +75,7 @@ export function TopBar({ onMenu, userName = "You", avatarUrl = null }: { onMenu:
           <Icon name="psychology" size={16} />
           AI Assistant
         </Link>
-        <Link href="/settings" title={userName} className="shrink-0">
-          {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              alt={userName}
-              className="w-8 h-8 rounded-full border border-outline-variant object-cover cursor-pointer"
-              src={avatarUrl}
-            />
-          ) : (
-            <span className="w-8 h-8 rounded-full border border-outline-variant bg-primary-container text-on-primary-container flex items-center justify-center text-xs font-bold cursor-pointer">
-              {initials(userName)}
-            </span>
-          )}
-        </Link>
+        <UserMenu userName={userName} avatarUrl={avatarUrl} role={role} roles={roles} branchLabel={branchLabel} isPlatformAdmin={isPlatformAdmin} />
       </div>
     </header>
   );

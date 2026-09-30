@@ -99,7 +99,25 @@ _Or register your own free workspace from the app to explore with a clean slate.
 
 ## 🖼 Screenshots
 
-_Add screenshots here — Dashboard, Inventory, POS, Purchasing, Finance, Reports, AI Assistant._
+_Captured from the live demo workspace._
+
+### Executive Dashboard
+![Dashboard](docs/screenshots/dashboard.png)
+
+### Point of Sale
+![POS](docs/screenshots/pos.png)
+
+| Products | Warehouses |
+|---|---|
+| ![Products](docs/screenshots/products.png) | ![Warehouses](docs/screenshots/warehouses.png) |
+
+| Purchasing | Customers |
+|---|---|
+| ![Purchasing](docs/screenshots/purchases.png) | ![Customers](docs/screenshots/customers.png) |
+
+| Finance | Reports |
+|---|---|
+| ![Finance](docs/screenshots/finance.png) | ![Reports](docs/screenshots/reports.png) |
 
 ---
 

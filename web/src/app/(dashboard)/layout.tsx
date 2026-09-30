@@ -1,7 +1,9 @@
 import { AppShell } from "@/components/AppShell";
+import { BranchSelector } from "@/components/BranchSelector";
 import { Icon } from "@/components/Icon";
 import { getPlatformContext } from "@/lib/admin/data";
-import { getActiveOrg } from "@/lib/org";
+import { getActiveOrg, getOrgBrand } from "@/lib/org";
+import { getBranchContext } from "@/lib/branches/context";
 import { getProfile } from "@/lib/data";
 import { signOut } from "@/lib/auth/actions";
 
@@ -14,7 +16,9 @@ export default async function DashboardLayout({
     getPlatformContext(),
     getActiveOrg(),
   ]);
-  const profile = org ? await getProfile(org.userId) : { fullName: null, avatarUrl: null };
+  const [profile, brand, branchCtx] = org
+    ? await Promise.all([getProfile(org.userId), getOrgBrand(org.orgId), getBranchContext(org)])
+    : [{ fullName: null, avatarUrl: null }, { logoUrl: null, tagline: null }, null];
 
   // A suspended company locks out its members — platform admins are exempt so
   // they can still reach the Platform Console to reactivate it.
@@ -22,12 +26,36 @@ export default async function DashboardLayout({
     return <SuspendedScreen name={org.orgName} />;
   }
 
+  const branchSelector =
+    branchCtx && branchCtx.showSelector ? (
+      <BranchSelector
+        branches={branchCtx.branches.map((b) => ({ id: b.id, name: b.name }))}
+        activeBranchId={branchCtx.activeBranchId}
+        canSeeAll={branchCtx.canSeeAll}
+      />
+    ) : null;
+
+  // Label for the header identity chip: the selected/locked branch, or "All branches".
+  const branchLabel = branchCtx
+    ? branchCtx.activeBranchId
+      ? branchCtx.branches.find((b) => b.id === branchCtx.activeBranchId)?.name ?? null
+      : branchCtx.canSeeAll && branchCtx.branches.length > 0
+        ? "All branches"
+        : branchCtx.branches[0]?.name ?? null
+    : null;
+
   return (
     <AppShell
       isPlatformAdmin={isPlatformAdmin}
       userName={profile.fullName ?? org?.orgName ?? "You"}
       avatarUrl={profile.avatarUrl}
       role={org?.role}
+      roles={org?.roles}
+      orgName={org?.orgName ?? "Workspace"}
+      orgLogoUrl={brand.logoUrl}
+      orgTagline={brand.tagline}
+      branchSelector={branchSelector}
+      branchLabel={branchLabel}
     >
       {children}
     </AppShell>

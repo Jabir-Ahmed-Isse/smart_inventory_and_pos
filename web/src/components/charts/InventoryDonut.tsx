@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Chart from "chart.js/auto";
 
 /** Doughnut chart bound to live inventory units per category. */
 export function InventoryDonut({
@@ -23,7 +22,13 @@ export function InventoryDonut({
 
     const total = values.reduce((s, v) => s + v, 0) || 1;
 
-    const chart = new Chart(ctx, {
+    // chart.js is loaded lazily so it stays out of the dashboard's First Load JS.
+    let chart: { destroy: () => void } | null = null;
+    let cancelled = false;
+    void (async () => {
+      const { default: Chart } = await import("chart.js/auto");
+      if (cancelled) return;
+      chart = new Chart(ctx, {
       type: "doughnut",
       data: {
         labels,
@@ -55,9 +60,10 @@ export function InventoryDonut({
           },
         },
       },
-    });
+      });
+    })();
 
-    return () => chart.destroy();
+    return () => { cancelled = true; chart?.destroy(); };
   }, [labels, values, colors]);
 
   return <canvas ref={canvasRef} />;

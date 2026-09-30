@@ -10,6 +10,7 @@ export type FinTxn = {
   description: string | null;
   amount: number;
   reference: string | null;
+  accountId?: string | null;
   createdAt: string;
 };
 export type FinSalesOrder = {
@@ -38,37 +39,48 @@ export type FinanceRaw = {
   cogs: number;
 };
 
-export async function loadFinance(orgId: string): Promise<FinanceRaw> {
+export async function loadFinance(orgId: string, branchId?: string | null): Promise<FinanceRaw> {
   const supabase = await createClient();
   const [txRes, soRes, poRes, itemRes] = await Promise.all([
     supabase
       .from("transactions")
-      .select("id, type, category, description, amount, reference, created_at")
+      .select("id, type, category, description, amount, reference, account_id, created_at, branch_id")
       .eq("organization_id", orgId)
       .order("created_at", { ascending: false }),
     supabase
       .from("sales_orders")
-      .select("id, order_number, total, status, payment_method, created_at, customers(name)")
+      .select("id, order_number, total, status, payment_method, created_at, branch_id, customers(name)")
       .eq("organization_id", orgId)
       .order("created_at", { ascending: false }),
     supabase
       .from("purchase_orders")
-      .select("id, po_number, total, status, created_at, suppliers(name)")
+      .select("id, po_number, total, status, created_at, branch_id, suppliers(name)")
       .eq("organization_id", orgId)
       .order("created_at", { ascending: false }),
     supabase
       .from("sales_order_items")
-      .select("quantity, products(cost_price), sales_orders(status)")
+      .select("quantity, products(cost_price), sales_orders(status, branch_id)")
       .eq("organization_id", orgId),
   ]);
 
-  const transactions: FinTxn[] = (txRes.data ?? []).map((t) => ({
+  // Branch filter (when a specific branch is selected). Applied in JS so it works
+  // even though branch_id isn't in the generated types.
+  const bOf = (r: unknown) => (r as { branch_id?: string | null }).branch_id ?? null;
+  const inBranch = (r: unknown) => !branchId || bOf(r) === branchId;
+
+  const transactions: FinTxn[] = ((txRes.data ?? []) as unknown as {
+    id: string; type: string; category: string | null; description: string | null;
+    amount: number; reference: string | null; account_id: string | null; created_at: string; branch_id?: string | null;
+  }[])
+    .filter(inBranch)
+    .map((t) => ({
     id: t.id,
     type: t.type as "income" | "expense",
     category: t.category,
     description: t.description,
     amount: t.amount,
     reference: t.reference,
+    accountId: t.account_id ?? null,
     createdAt: t.created_at,
   }));
 
@@ -84,7 +96,7 @@ export async function loadFinance(orgId: string): Promise<FinanceRaw> {
     payment_method: string | null;
     created_at: string;
     customers: { name: string } | null;
-  }[]).map((o) => ({
+  }[]).filter(inBranch).map((o) => ({
     id: o.id,
     orderNumber: o.order_number,
     total: o.total,
@@ -102,7 +114,7 @@ export async function loadFinance(orgId: string): Promise<FinanceRaw> {
     status: string;
     created_at: string;
     suppliers: { name: string } | null;
-  }[]).map((p) => ({
+  }[]).filter(inBranch).map((p) => ({
     id: p.id,
     poNumber: p.po_number,
     total: p.total,
@@ -114,10 +126,11 @@ export async function loadFinance(orgId: string): Promise<FinanceRaw> {
   const items = (itemRes.data ?? []) as unknown as {
     quantity: number;
     products: { cost_price: number } | null;
-    sales_orders: { status: string } | null;
+    sales_orders: { status: string; branch_id?: string | null } | null;
   }[];
   const cogs = items
     .filter((i) => i.sales_orders?.status !== "cancelled")
+    .filter((i) => !branchId || (i.sales_orders?.branch_id ?? null) === branchId)
     .reduce((s, i) => s + (i.quantity ?? 0) * (i.products?.cost_price ?? 0), 0);
 
   return { transactions, salesOrders, purchaseOrders, cogs };

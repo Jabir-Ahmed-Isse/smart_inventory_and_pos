@@ -4,6 +4,7 @@ import { Kpi } from "@/components/finance/Kpi";
 import { TrendLine, RevenueExpenseBars } from "@/components/finance/Charts";
 import { RankBars } from "@/components/analytics/RankBars";
 import { getActiveOrg } from "@/lib/org";
+import { getActiveBranchId } from "@/lib/branches/context";
 import { getReportsData, money, compactMoney } from "@/lib/data";
 import { loadFinance, financeSummary } from "@/lib/finance/data";
 import { getCustomerAnalytics, getSupplierAnalytics } from "@/lib/reports/data";
@@ -17,7 +18,7 @@ export default async function ExecutiveReportPage() {
 
   const [rep, fin, cust, sup] = await Promise.all([
     getReportsData(org.orgId),
-    loadFinance(org.orgId).then(financeSummary),
+    loadFinance(org.orgId, await getActiveBranchId()).then(financeSummary),
     getCustomerAnalytics(org.orgId),
     getSupplierAnalytics(org.orgId),
   ]);
@@ -86,7 +87,7 @@ export default async function ExecutiveReportPage() {
             {rep.lowStockCount > 0 && <Line icon="warning">{rep.lowStockCount} product(s) need reordering soon.</Line>}
             {rep.topProducts[0] && <Line icon="emoji_events">{rep.topProducts[0].name} holds the most inventory value.</Line>}
           </ul>
-          <Link href="/reports/ai" className="mt-md text-center py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:bg-primary/90 transition-colors">Open AI Insights</Link>
+          <Link href="/ai" className="mt-md text-center py-2 rounded-lg bg-primary text-on-primary font-label-md text-label-md hover:bg-primary/90 transition-colors">Open AI Intelligence</Link>
         </div>
       </div>
     </main>

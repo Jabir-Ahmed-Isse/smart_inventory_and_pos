@@ -65,8 +65,11 @@ export async function signUp(formData: FormData) {
 export async function signOut() {
   if (configured()) {
     const supabase = await createClient();
-    await supabase.auth.signOut();
+    // `scope: "local"` clears the session cookies for THIS browser immediately,
+    // without the network round-trip to revoke the token across all devices —
+    // logout feels instant. (signIn re-validates the layout cache on the next
+    // login, so no stale data leaks between accounts.)
+    await supabase.auth.signOut({ scope: "local" });
   }
-  revalidatePath("/", "layout");
   redirect("/login");
 }

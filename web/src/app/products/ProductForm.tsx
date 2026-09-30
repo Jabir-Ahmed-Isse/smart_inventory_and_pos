@@ -109,9 +109,41 @@ export function ProductForm({
                     <span className="absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant font-body-md text-body-md">$</span>
                     <input name="retail_price" defaultValue={initial?.retailPrice} className={`${inputCls} pl-xl font-semibold text-primary`} placeholder="0.00" type="number" step="0.01" min="0" />
                   </div>
-                  <p className="font-body-sm text-body-sm text-on-surface-variant mt-xs">What customers pay at checkout.</p>
+                  <p className="font-body-sm text-body-sm text-on-surface-variant mt-xs">Default price customers pay at checkout.</p>
                 </div>
               </div>
+              {/* Selling-price band — bounds the price a cashier can set at POS. */}
+              <div className="mt-md pt-md border-t border-outline-variant">
+                <p className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wide mb-sm flex items-center gap-1">
+                  <Icon name="tune" size={15} /> Selling price limits (POS)
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
+                  <div>
+                    <Label>Min Price</Label>
+                    <div className="relative">
+                      <span className="absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant font-body-md text-body-md">$</span>
+                      <input name="min_price" defaultValue={initial?.minPrice ?? ""} className={`${inputCls} pl-xl`} placeholder="No floor" type="number" step="0.01" min="0" />
+                    </div>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant mt-xs">Lowest a cashier may sell for. Blank = no floor.</p>
+                  </div>
+                  <div>
+                    <Label>Max Price</Label>
+                    <div className="relative">
+                      <span className="absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant font-body-md text-body-md">$</span>
+                      <input name="max_price" defaultValue={initial?.maxPrice ?? ""} className={`${inputCls} pl-xl`} placeholder="No ceiling" type="number" step="0.01" min="0" />
+                    </div>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant mt-xs">Highest a cashier may sell for. Blank = no ceiling.</p>
+                  </div>
+                </div>
+              </div>
+              {/* Featured — surface as a POS quick-add button */}
+              <label className="mt-md pt-md border-t border-outline-variant flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" name="is_featured" defaultChecked={initial?.isFeatured ?? false} className="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary" />
+                <span>
+                  <span className="flex items-center gap-1 font-label-md text-label-md text-on-surface"><Icon name="star" size={15} className="text-tertiary" /> Featured product</span>
+                  <span className="block font-body-sm text-body-sm text-on-surface-variant">Show as a fast quick-add button on the POS screen.</span>
+                </span>
+              </label>
             </section>
 
             {/* Inventory */}

@@ -64,8 +64,19 @@ export async function createOrgUser(formData: FormData): Promise<ActionResult> {
     return { ok: false, error: memberErr.message };
   }
 
+  // 3. Optional branch assignments (branch-scoped roles). Best-effort: the user
+  //    already exists, so a branch hiccup shouldn't fail creation — they can be
+  //    assigned later from Roles or Branches. Safe if branches aren't set up yet.
+  const branchIds = formData.getAll("branch_ids").map(String).filter(Boolean);
+  if (branchIds.length) {
+    await admin
+      .from("branch_members")
+      .insert(branchIds.map((b) => ({ organization_id: org.orgId, user_id: created.user.id, branch_id: b })) as never);
+  }
+
   revalidatePath("/roles");
   revalidatePath("/admin");
+  revalidatePath("/branches");
   return { ok: true };
 }
 

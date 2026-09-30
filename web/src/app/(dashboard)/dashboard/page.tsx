@@ -2,17 +2,48 @@ import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { RevenueChart } from "@/components/charts/RevenueChart";
 import { InventoryDonut } from "@/components/charts/InventoryDonut";
-import { getActiveOrg } from "@/lib/org";
+import { getActiveOrg, orgHasRole } from "@/lib/org";
+import { getBranchContext } from "@/lib/branches/context";
 import {
   getDashboardMetrics,
-  getTodaySales,
+  getSalesInRange,
   getDashboardCharts,
   money,
   compactMoney,
   type ChartData,
 } from "@/lib/data";
+import { getErpSnapshot } from "@/lib/dashboard/erp";
+import { PeriodSelector, type PeriodKey } from "./PeriodSelector";
+import { StaffDashboard } from "./StaffDashboard";
 
 export const metadata = { title: "Executive Dashboard — Inventory Pro" };
+
+/** Resolves the selected period into a concrete date range + display labels. */
+function resolveRange(period: PeriodKey, from?: string, to?: string) {
+  const now = new Date();
+  const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+  const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+  if (period === "custom" && from && to) {
+    const start = new Date(`${from}T00:00:00`);
+    const end = new Date(`${to}T23:59:59`);
+    return { startISO: start.toISOString(), endISO: end.toISOString(), kpiLabel: "Sales", rangeLabel: `${fmt(start)} – ${fmt(end)}`, unit: "orders" };
+  }
+  if (period === "7d") {
+    const start = startOfDay(new Date(now.getTime() - 6 * 86400000));
+    return { startISO: start.toISOString(), endISO: undefined, kpiLabel: "Sales · Last 7 days", rangeLabel: "the last 7 days", unit: "orders" };
+  }
+  if (period === "30d") {
+    const start = startOfDay(new Date(now.getTime() - 29 * 86400000));
+    return { startISO: start.toISOString(), endISO: undefined, kpiLabel: "Sales · Last 30 days", rangeLabel: "the last 30 days", unit: "orders" };
+  }
+  if (period === "month") {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { startISO: start.toISOString(), endISO: undefined, kpiLabel: "Sales · This month", rangeLabel: now.toLocaleDateString("en-US", { month: "long", year: "numeric" }), unit: "orders" };
+  }
+  // today (default)
+  return { startISO: startOfDay(now).toISOString(), endISO: undefined, kpiLabel: "Today's Sales", rangeLabel: fmt(now), unit: "orders" };
+}
 
 const EMPTY_CHARTS: ChartData = {
   revenue: { labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], values: [0, 0, 0, 0, 0, 0, 0] },
@@ -20,27 +51,51 @@ const EMPTY_CHARTS: ChartData = {
   totalUnits: 0,
 };
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string; from?: string; to?: string }>;
+}) {
+  const sp = await searchParams;
+  const period: PeriodKey = (["today", "7d", "30d", "month", "custom"].includes(sp.period ?? "")
+    ? sp.period
+    : "today") as PeriodKey;
+  const range = resolveRange(period, sp.from, sp.to);
+
   const org = await getActiveOrg();
-  const metrics = org
-    ? await getDashboardMetrics(org.orgId)
-    : {
-        productCount: 0,
-        customerCount: 0,
-        lowStockCount: 0,
-        inventoryValue: 0,
-        netProfit: 0,
-        lowStockItems: [],
-        topProducts: [],
-      };
-  const todaySales = org ? await getTodaySales(org.orgId) : { total: 0, count: 0 };
-  const charts = org ? await getDashboardCharts(org.orgId) : EMPTY_CHARTS;
+
+  // Active branch context: when a specific branch is selected (or the user is
+  // locked to one), figures narrow to that branch; null = All Branches.
+  const branchId = org ? (await getBranchContext(org)).activeBranchId : null;
+
+  // Operational users (staff, cashier) get a limited dashboard with NO financial
+  // figures — only quick actions + low-stock awareness. Management (owner/admin/
+  // manager/accountant, incl. via extra roles) gets the full executive view.
+  const isManagement = orgHasRole(org, ["owner", "admin", "manager", "accountant"]);
+  if (org && !isManagement) {
+    const m = await getDashboardMetrics(org.orgId, branchId);
+    return <StaffDashboard orgName={org.orgName} metrics={m} canSettle={orgHasRole(org, ["cashier"])} />;
+  }
+
+  // Finance + people figures are management-only (cash position, payroll cost).
+  const canSeeErp = isManagement;
+
+  // Run every dashboard query in parallel instead of one-after-another — 4
+  // sequential round-trips become one batch, so the page renders far sooner.
+  const [metrics, todaySales, charts, erp] = org
+    ? await Promise.all([
+        getDashboardMetrics(org.orgId, branchId),
+        getSalesInRange(org.orgId, range.startISO, range.endISO, branchId),
+        getDashboardCharts(org.orgId, branchId),
+        canSeeErp ? getErpSnapshot(org.orgId) : Promise.resolve(null),
+      ])
+    : [
+        { productCount: 0, customerCount: 0, lowStockCount: 0, inventoryValue: 0, netProfit: 0, lowStockItems: [], topProducts: [] },
+        { total: 0, count: 0 },
+        EMPTY_CHARTS,
+        null,
+      ];
   const currency = org?.currency ?? "USD";
-  const today = new Date().toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
 
   return (
     <main className="flex-1 p-md md:p-gutter max-w-container-max mx-auto w-full">
@@ -51,14 +106,11 @@ export default async function DashboardPage() {
             Executive Overview
           </h2>
           <p className="font-body-md text-body-md text-on-surface-variant mt-xs">
-            {org ? `${org.orgName} · ` : ""}Live metrics for {today}
+            {org ? `${org.orgName} · ` : ""}Metrics for {range.rangeLabel}
           </p>
         </div>
         <div className="hidden sm:flex gap-sm">
-          <button className="flex items-center gap-sm px-md py-sm border border-outline-variant rounded-md font-label-md text-label-md hover:bg-surface-container-low transition-colors">
-            <Icon name="calendar_today" size={16} />
-            Today
-          </button>
+          <PeriodSelector period={period} from={sp.from} to={sp.to} />
           <button className="flex items-center gap-sm px-md py-sm bg-primary text-on-primary rounded-md font-label-md text-label-md hover:bg-on-primary-fixed-variant transition-colors shadow-sm">
             <Icon name="download" size={16} />
             Export
@@ -69,11 +121,11 @@ export default async function DashboardPage() {
       {/* KPI grid — live */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-md mb-lg">
         <KpiCard
-          label="Today's Sales"
+          label={range.kpiLabel}
           icon="point_of_sale"
           iconClass="text-primary"
           value={compactMoney(todaySales.total, currency)}
-          delta={`${todaySales.count} ${todaySales.count === 1 ? "order" : "orders"} today`}
+          delta={`${todaySales.count} ${todaySales.count === 1 ? "order" : "orders"}`}
           deltaClass="text-on-surface-variant"
           deltaIcon="receipt_long"
         />
@@ -105,6 +157,41 @@ export default async function DashboardPage() {
           deltaIcon="payments"
         />
       </div>
+
+      {/* Finance & People — ledger + HR, management only */}
+      {erp && (
+        <section className="mb-lg">
+          <div className="flex items-center justify-between mb-md">
+            <h3 className="font-headline-lg text-headline-lg text-on-background flex items-center gap-sm">
+              <Icon name="account_balance" className="text-primary" /> Finance &amp; People
+            </h3>
+            <Link href="/accounting" className="text-on-surface-variant text-label-md font-label-md hover:text-primary flex items-center">
+              Accounting <Icon name="chevron_right" size={16} />
+            </Link>
+          </div>
+          {erp.accountingSetUp ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-md">
+              <ErpKpi href="/accounting/profit-loss" label="Net Income" icon="account_balance_wallet" value={compactMoney(erp.netIncome, currency)} tone={erp.netIncome >= 0 ? "pos" : "neg"} />
+              <ErpKpi href="/accounting/balance-sheet" label="Cash & Bank" icon="account_balance" value={compactMoney(erp.cash, currency)} />
+              <ErpKpi href="/finance/receivables" label="Receivables" icon="call_received" value={compactMoney(erp.receivables, currency)} tone={erp.receivables > 0 ? "warn" : undefined} />
+              <ErpKpi href="/finance/payables" label="Payables" icon="call_made" value={compactMoney(erp.payables, currency)} tone={erp.payables > 0 ? "neg" : undefined} />
+              <ErpKpi href="/hr" label="Headcount" icon="groups" value={erp.headcount.toLocaleString()} />
+              <ErpKpi href="/payroll" label="Monthly Payroll" icon="payments" value={compactMoney(erp.monthlyPayroll, currency)} />
+            </div>
+          ) : (
+            <Link href="/accounting" className="glass-card rounded-xl p-md flex items-center gap-md hover:shadow-md transition-shadow">
+              <div className="w-11 h-11 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <Icon name="account_balance" filled />
+              </div>
+              <div className="flex-1">
+                <p className="font-body-md text-body-md text-on-background font-semibold">Set up your accounting ledger</p>
+                <p className="font-body-sm text-body-sm text-on-surface-variant">Install the Chart of Accounts to see cash, receivables, payables and net income here.</p>
+              </div>
+              <Icon name="chevron_right" className="text-on-surface-variant" />
+            </Link>
+          )}
+        </section>
+      )}
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-md mb-lg">
@@ -301,6 +388,19 @@ function KpiCard({
         </div>
       </div>
     </div>
+  );
+}
+
+function ErpKpi({ href, label, icon, value, tone }: { href: string; label: string; icon: string; value: string; tone?: "pos" | "neg" | "warn" }) {
+  const valueCls = tone === "pos" ? "text-primary" : tone === "neg" ? "text-error" : tone === "warn" ? "text-tertiary" : "text-on-background";
+  return (
+    <Link href={href} className="glass-card p-md rounded-xl flex flex-col gap-sm hover:shadow-md transition-shadow group">
+      <div className="flex items-center justify-between gap-sm">
+        <span className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wide truncate">{label}</span>
+        <Icon name={icon} size={18} className="text-on-surface-variant group-hover:text-primary transition-colors shrink-0" />
+      </div>
+      <span className={`font-display-lg text-[22px] font-bold tabular-nums ${valueCls}`}>{value}</span>
+    </Link>
   );
 }
 

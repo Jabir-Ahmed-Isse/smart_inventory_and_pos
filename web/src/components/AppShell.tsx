@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import type { UserRole } from "@/lib/supabase/database.types";
@@ -16,18 +16,30 @@ export function AppShell({
   userName = "You",
   avatarUrl = null,
   role,
+  roles,
+  orgName = "Workspace",
+  orgLogoUrl = null,
+  orgTagline = null,
+  branchSelector = null,
+  branchLabel = null,
 }: {
   children: React.ReactNode;
   isPlatformAdmin?: boolean;
   userName?: string;
   avatarUrl?: string | null;
   role?: UserRole;
+  roles?: UserRole[];
+  orgName?: string;
+  orgLogoUrl?: string | null;
+  orgTagline?: string | null;
+  branchSelector?: ReactNode;
+  branchLabel?: string | null;
 }) {
   const [open, setOpen] = useState(false);
 
   return (
     <div className="min-h-screen flex bg-background text-on-background">
-      <Sidebar open={open} onClose={() => setOpen(false)} isPlatformAdmin={isPlatformAdmin} role={role} />
+      <Sidebar open={open} onClose={() => setOpen(false)} isPlatformAdmin={isPlatformAdmin} role={role} roles={roles} orgName={orgName} orgLogoUrl={orgLogoUrl} orgTagline={orgTagline} />
 
       {open && (
         <div
@@ -38,7 +50,7 @@ export function AppShell({
       )}
 
       <div className="flex-1 md:ml-[280px] min-w-0 flex flex-col">
-        <TopBar onMenu={() => setOpen(true)} userName={userName} avatarUrl={avatarUrl} />
+        <TopBar onMenu={() => setOpen(true)} userName={userName} avatarUrl={avatarUrl} branchSelector={branchSelector} role={role} roles={roles} branchLabel={branchLabel} isPlatformAdmin={isPlatformAdmin} />
         {children}
       </div>
     </div>

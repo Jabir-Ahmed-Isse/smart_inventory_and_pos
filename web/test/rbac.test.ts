@@ -3,19 +3,26 @@ import { roleCan, navGroups } from "@/lib/nav";
 
 describe("roleCan", () => {
   it("allows everyone when no roles set", () => {
-    expect(roleCan("staff", undefined)).toBe(true);
+    expect(roleCan(["staff"], undefined)).toBe(true);
     expect(roleCan(undefined, undefined)).toBe(true);
   });
   it("blocks a role not in the allow-list", () => {
-    expect(roleCan("staff", ["owner", "admin"])).toBe(false);
-    expect(roleCan("accountant", ["owner", "admin", "manager"])).toBe(false);
+    expect(roleCan(["staff"], ["owner", "admin"])).toBe(false);
+    expect(roleCan(["accountant"], ["owner", "admin", "manager"])).toBe(false);
   });
   it("allows a role in the allow-list", () => {
-    expect(roleCan("admin", ["owner", "admin"])).toBe(true);
-    expect(roleCan("manager", ["owner", "admin", "manager"])).toBe(true);
+    expect(roleCan(["admin"], ["owner", "admin"])).toBe(true);
+    expect(roleCan(["manager"], ["owner", "admin", "manager"])).toBe(true);
   });
   it("blocks undefined role against a restricted item", () => {
     expect(roleCan(undefined, ["owner", "admin"])).toBe(false);
+  });
+  it("multi-role: passes when ANY effective role qualifies", () => {
+    expect(roleCan(["staff", "accountant"], ["accountant"])).toBe(true);
+    expect(roleCan(["staff", "cashier"], ["manager"])).toBe(false);
+  });
+  it("owner covers every allow-list", () => {
+    expect(roleCan(["owner"], ["accountant"])).toBe(true);
   });
 });
 

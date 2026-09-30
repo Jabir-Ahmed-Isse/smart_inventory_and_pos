@@ -9,11 +9,7 @@ const TABS = [
   { label: "Overview", icon: "dashboard", href: "/purchases" },
   { label: "Purchase Orders", icon: "shopping_cart", href: "/purchases/orders" },
   { label: "Goods Receiving", icon: "local_shipping", href: "/purchases/receiving" },
-  { label: "Suppliers", icon: "storefront", href: "/suppliers" },
-  { label: "RFQ", icon: "request_quote", href: "/rfq" },
   { label: "Returns", icon: "keyboard_return", href: "/purchases/returns" },
-  { label: "Shipping", icon: "conveyor_belt", href: "/shipping" },
-  { label: "Analytics", icon: "analytics", href: "/purchases/analytics" },
 ];
 
 export function PurchasingNav() {

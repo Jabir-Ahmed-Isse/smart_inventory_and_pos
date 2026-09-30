@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Chart from "chart.js/auto";
 
 /** Area line chart bound to live daily revenue for the last 7 days. */
 export function RevenueChart({
@@ -19,11 +18,18 @@ export function RevenueChart({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-    gradient.addColorStop(0, "rgba(0, 108, 73, 0.5)");
-    gradient.addColorStop(1, "rgba(0, 108, 73, 0.0)");
+    // chart.js is loaded lazily so it stays out of the dashboard's First Load JS.
+    let chart: { destroy: () => void } | null = null;
+    let cancelled = false;
+    void (async () => {
+      const { default: Chart } = await import("chart.js/auto");
+      if (cancelled) return;
 
-    const chart = new Chart(ctx, {
+      const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+      gradient.addColorStop(0, "rgba(0, 108, 73, 0.5)");
+      gradient.addColorStop(1, "rgba(0, 108, 73, 0.0)");
+
+      chart = new Chart(ctx, {
       type: "line",
       data: {
         labels,
@@ -82,9 +88,10 @@ export function RevenueChart({
         },
         interaction: { intersect: false, mode: "index" },
       },
-    });
+      });
+    })();
 
-    return () => chart.destroy();
+    return () => { cancelled = true; chart?.destroy(); };
   }, [labels, values]);
 
   return <canvas ref={canvasRef} />;

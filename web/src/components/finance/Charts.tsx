@@ -1,19 +1,27 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Chart, { type ChartConfiguration, type ScriptableContext } from "chart.js/auto";
+import type { ChartConfiguration, ScriptableContext } from "chart.js/auto";
 
 const GRID = "rgba(120,138,128,0.15)";
 const TICK = "#7a887f";
 const FONT = { family: "Geist, system-ui, sans-serif", size: 12 };
 
+// chart.js (~70 kB) is loaded lazily via dynamic import, so it's code-split into
+// its own chunk instead of sitting in the First Load JS of every analytics page.
+// The canvas is already in the DOM; the chart draws a moment after mount.
 function useChart(config: () => ChartConfiguration, deps: unknown[]) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    const ctx = ref.current?.getContext("2d");
-    if (!ctx) return;
-    const chart = new Chart(ctx, config());
-    return () => chart.destroy();
+    let chart: { destroy: () => void } | null = null;
+    let cancelled = false;
+    void (async () => {
+      const { default: Chart } = await import("chart.js/auto");
+      const ctx = ref.current?.getContext("2d");
+      if (!ctx || cancelled) return;
+      chart = new Chart(ctx, config());
+    })();
+    return () => { cancelled = true; chart?.destroy(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
   return ref;

@@ -5,8 +5,12 @@ import { USER_ID_HEADER } from "./constants";
 
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
-/** Public routes reachable without an authenticated session. */
-const PUBLIC_PREFIXES = ["/login", "/register", "/auth"];
+/**
+ * Public routes reachable without an authenticated session. `/api/cron` is
+ * exempt because those endpoints are protected by their own secret token
+ * (REPORTS_CRON_SECRET) and are hit by an external scheduler, not a browser.
+ */
+const PUBLIC_PREFIXES = ["/login", "/register", "/auth", "/api/cron"];
 
 /**
  * Refreshes the Supabase auth session on every request and gates the app:

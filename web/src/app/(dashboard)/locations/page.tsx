@@ -4,6 +4,7 @@ import { DeleteButton } from "@/components/DeleteButton";
 import { getActiveOrg } from "@/lib/org";
 import { requireRole } from "@/lib/rbac";
 import { getWarehousesWithStats, money, compactMoney } from "@/lib/data";
+import { getUserBranches, hasOrgWideBranchScope, type Branch } from "@/lib/branches/data";
 import { createWarehouse, deleteWarehouse } from "@/lib/warehouses/actions";
 
 export const metadata = { title: "Locations — Inventory Pro" };
@@ -11,7 +12,10 @@ export const metadata = { title: "Locations — Inventory Pro" };
 export default async function LocationsPage() {
   await requireRole(["owner", "admin", "manager"]);
   const org = await getActiveOrg();
-  const locations = org ? await getWarehousesWithStats(org.orgId) : [];
+  const [locations, branches] = org
+    ? await Promise.all([getWarehousesWithStats(org.orgId), getUserBranches(org)])
+    : [[], []];
+  const orgWide = org ? hasOrgWideBranchScope(org) : false;
   const currency = org?.currency ?? "USD";
   const totalValue = locations.reduce((s, l) => s + l.value, 0);
 
@@ -31,7 +35,7 @@ export default async function LocationsPage() {
             Your warehouses and stocking locations.
           </p>
         </div>
-        <NewLocationDialog />
+        <NewLocationDialog branches={branches.filter((b) => b.isActive)} orgWide={orgWide} />
       </div>
 
       {/* Bento */}
@@ -143,7 +147,7 @@ export default async function LocationsPage() {
   );
 }
 
-function NewLocationDialog() {
+function NewLocationDialog({ branches, orgWide }: { branches: Branch[]; orgWide: boolean }) {
   return (
     <CrudDialog
       triggerLabel="Add Location"
@@ -156,6 +160,23 @@ function NewLocationDialog() {
         <label className={labelCls}>Name *</label>
         <input name="name" required className={fieldCls} placeholder="Main Warehouse" type="text" />
       </div>
+      {orgWide && branches.length > 0 ? (
+        <div>
+          <label className={labelCls}>Branch</label>
+          <select name="branch_id" className={`${fieldCls} appearance-none`} defaultValue="">
+            <option value="">— None (shared / company-level) —</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+          <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">Pick a branch to keep this warehouse private to it, or leave blank for a shared warehouse all branches can use.</p>
+        </div>
+      ) : branches.length > 0 ? (
+        <p className="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1.5">
+          <Icon name="store" size={15} className="text-primary" />
+          This warehouse will belong to your branch: <b className="text-on-surface">{branches[0].name}</b>.
+        </p>
+      ) : null}
       <div>
         <label className={labelCls}>Location / Address</label>
         <input name="location" className={fieldCls} placeholder="City, Country" type="text" />

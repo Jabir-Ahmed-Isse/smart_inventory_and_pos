@@ -1,4 +1,5 @@
 import { getActiveOrg } from "@/lib/org";
+import { getActiveBranchId } from "@/lib/branches/context";
 import { loadFinance, receivables } from "@/lib/finance/data";
 import { AgingView } from "@/components/finance/AgingTable";
 
@@ -7,7 +8,7 @@ export const metadata = { title: "Receivables — Inventory Pro" };
 export default async function ReceivablesPage() {
   const org = await getActiveOrg();
   const currency = org?.currency ?? "USD";
-  const raw = org ? await loadFinance(org.orgId) : null;
+  const raw = org ? await loadFinance(org.orgId, await getActiveBranchId()) : null;
   const rows = raw ? receivables(raw) : [];
 
   return (

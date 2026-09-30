@@ -1,13 +1,17 @@
-import { getActiveOrg } from "@/lib/org";
+import { getActiveOrg, getOrgProfile } from "@/lib/org";
 import { getProfile } from "@/lib/data";
+import { getReportSettings, DEFAULT_REPORT_SETTINGS, toClientSettings } from "@/lib/reports/agent/settings";
 import { SettingsTabs } from "./SettingsTabs";
 
 export const metadata = { title: "System Settings — Inventory Pro" };
 
 export default async function SettingsPage() {
   const org = await getActiveOrg();
-  const profile = org ? await getProfile(org.userId) : { fullName: null, avatarUrl: null };
+  const [profile, reportSettings, orgProfile] = org
+    ? await Promise.all([getProfile(org.userId), getReportSettings(org.orgId), getOrgProfile(org.orgId)])
+    : [{ fullName: null, avatarUrl: null }, DEFAULT_REPORT_SETTINGS, null];
   const canManage = org?.role === "owner" || org?.role === "admin";
+  const timezone = orgProfile?.timezone || "UTC";
 
   return (
     <div className="flex-1 overflow-y-auto bg-surface-container-low p-md md:p-lg lg:p-xl relative">
@@ -23,6 +27,8 @@ export default async function SettingsPage() {
           org={org ? { name: org.orgName, currency: org.currency, taxRate: org.taxRate, role: org.role } : null}
           profile={{ name: profile.fullName ?? "", avatarUrl: profile.avatarUrl }}
           canManage={!!canManage}
+          reportSettings={toClientSettings(reportSettings)}
+          timezone={timezone}
         />
       </div>
     </div>

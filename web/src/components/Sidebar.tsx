@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clsx } from "clsx";
 import { Icon } from "./Icon";
+import { Logo } from "./Logo";
 import { navGroups, secondaryNav, roleCan, type NavItem } from "@/lib/nav";
 import type { UserRole } from "@/lib/supabase/database.types";
 import { signOut } from "@/lib/auth/actions";
@@ -51,17 +52,30 @@ export function Sidebar({
   onClose,
   isPlatformAdmin = false,
   role,
+  roles,
+  orgName = "Workspace",
+  orgLogoUrl = null,
+  orgTagline = null,
 }: {
   open: boolean;
   onClose: () => void;
   isPlatformAdmin?: boolean;
   role?: UserRole;
+  roles?: UserRole[];
+  orgName?: string;
+  orgLogoUrl?: string | null;
+  orgTagline?: string | null;
 }) {
   const pathname = usePathname();
 
+  // A platform admin ON the Platform Console gets a lean, platform-focused
+  // sidebar (system operator context) — the company catalog/inventory nav is
+  // hidden and returns when they enter a company workspace.
+  const onPlatform = isPlatformAdmin && (pathname === "/platform" || pathname.startsWith("/platform/"));
+
   // Role-filter groups; drop groups that end up empty for this role.
   const groups = navGroups
-    .map((g) => ({ ...g, items: g.items.filter((i) => roleCan(role, i.roles)) }))
+    .map((g) => ({ ...g, items: g.items.filter((i) => roleCan(roles ?? (role ? [role] : []), i.roles)) }))
     .filter((g) => g.items.length > 0);
 
   return (
@@ -72,17 +86,10 @@ export function Sidebar({
         open ? "translate-x-0" : "-translate-x-full",
       )}
     >
-      <div className="p-lg flex items-center justify-between">
-        <div>
-          <h1 className="text-headline-lg font-headline-lg font-bold text-primary">
-            Inventory Pro
-          </h1>
-          <p className="font-label-md text-label-md text-on-surface-variant">
-            Enterprise Tier
-          </p>
-        </div>
+      <div className="p-lg flex items-center justify-between gap-2">
+        <Logo name={orgName} logoUrl={orgLogoUrl} tagline={orgTagline} />
         <button
-          className="md:hidden text-on-surface-variant"
+          className="md:hidden text-on-surface-variant shrink-0"
           onClick={onClose}
           aria-label="Close menu"
         >
@@ -106,7 +113,22 @@ export function Sidebar({
             </ul>
           </div>
         )}
-        {groups.map((group, gi) => (
+        {onPlatform && (
+          <div className="mb-md">
+            <p className="px-md pt-xs pb-xs font-label-md text-label-md text-on-surface-variant/70 uppercase tracking-wider text-[11px]">
+              Workspace
+            </p>
+            <ul className="space-y-xs">
+              <li onClick={onClose}>
+                <NavLink item={{ label: "Enter Workspace", icon: "grid_view", href: "/dashboard" }} active={false} />
+              </li>
+            </ul>
+            <p className="px-md pt-md font-body-sm text-body-sm text-on-surface-variant/60 text-[11px] leading-snug">
+              You’re in platform mode. Enter a workspace to manage its catalog, inventory and sales.
+            </p>
+          </div>
+        )}
+        {!onPlatform && groups.map((group, gi) => (
           <div key={group.title ?? `group-${gi}`} className={gi === 0 ? "" : "mt-md"}>
             {group.title && (
               <p className="px-md pt-xs pb-xs font-label-md text-label-md text-on-surface-variant/70 uppercase tracking-wider text-[11px]">

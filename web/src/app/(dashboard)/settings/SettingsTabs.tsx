@@ -4,11 +4,14 @@ import { useState } from "react";
 import { Icon } from "@/components/Icon";
 import { SettingsForm } from "./SettingsForm";
 import { ProfileForm } from "./ProfileForm";
+import { AiReportsTab } from "./AiReportsTab";
+import type { ReportSettings } from "@/lib/reports/agent/settings";
 
-type Tab = "profile" | "workspace" | "preferences";
+type Tab = "profile" | "workspace" | "reports" | "preferences";
 const TABS: { key: Tab; icon: string; label: string }[] = [
   { key: "profile", icon: "person", label: "Profile" },
   { key: "workspace", icon: "tune", label: "Workspace" },
+  { key: "reports", icon: "smart_toy", label: "AI Reports" },
   { key: "preferences", icon: "palette", label: "Preferences" },
 ];
 
@@ -16,10 +19,14 @@ export function SettingsTabs({
   org,
   profile,
   canManage,
+  reportSettings,
+  timezone,
 }: {
   org: { name: string; currency: string; taxRate: number; role: string } | null;
   profile: { name: string; avatarUrl: string | null };
   canManage: boolean;
+  reportSettings: ReportSettings;
+  timezone: string;
 }) {
   const [tab, setTab] = useState<Tab>("profile");
 
@@ -47,6 +54,10 @@ export function SettingsTabs({
           <Card title="Your Profile" subtitle="How you appear across the workspace.">
             <ProfileForm name={profile.name} avatarUrl={profile.avatarUrl} />
           </Card>
+        )}
+
+        {tab === "reports" && (
+          <AiReportsTab settings={reportSettings} canManage={canManage} timezone={timezone} />
         )}
 
         {tab === "workspace" && (

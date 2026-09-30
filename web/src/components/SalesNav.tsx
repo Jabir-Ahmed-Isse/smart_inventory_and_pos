@@ -7,12 +7,7 @@ import { Icon } from "@/components/Icon";
 
 const TABS = [
   { label: "Overview", icon: "dashboard", href: "/sales" },
-  { label: "Point of Sale", icon: "point_of_sale", href: "/pos" },
-  { label: "Orders", icon: "receipt_long", href: "/orders" },
-  { label: "Customers", icon: "groups", href: "/customers" },
-  { label: "Loyalty", icon: "loyalty", href: "/loyalty" },
   { label: "Returns", icon: "keyboard_return", href: "/sales/returns" },
-  { label: "Analytics", icon: "analytics", href: "/sales/analytics" },
 ];
 
 export function SalesNav() {

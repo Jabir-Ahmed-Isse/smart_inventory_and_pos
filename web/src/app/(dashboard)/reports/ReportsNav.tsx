@@ -12,12 +12,9 @@ const TABS = [
   { label: "Purchases", icon: "shopping_cart", href: "/reports/purchases" },
   { label: "Customers", icon: "groups", href: "/reports/customers" },
   { label: "Suppliers", icon: "local_shipping", href: "/reports/suppliers" },
-  { label: "Financial", icon: "payments", href: "/reports/financial" },
   { label: "Warehouse", icon: "warehouse", href: "/reports/warehouse" },
   { label: "Products", icon: "category", href: "/reports/products" },
-  { label: "AI Insights", icon: "auto_awesome", href: "/reports/ai" },
   { label: "Custom", icon: "tune", href: "/reports/custom" },
-  { label: "Scheduled", icon: "schedule", href: "/reports/scheduled" },
 ];
 
 export function ReportsNav() {

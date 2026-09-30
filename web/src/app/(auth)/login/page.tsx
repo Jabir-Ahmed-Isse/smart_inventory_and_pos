@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
-import { signIn } from "@/lib/auth/actions";
+import { LoginForm } from "./LoginForm";
 
 export const metadata = { title: "Sign in — Inventory Pro" };
 
@@ -62,7 +62,8 @@ export default async function LoginPage({
               </div>
             )}
 
-            <form action={signIn} className="space-y-md">
+            <LoginForm />
+            <div className="hidden">
               <Field
                 id="email"
                 label="Work Email"
@@ -109,7 +110,7 @@ export default async function LoginPage({
                   Sign in to Workspace
                 </button>
               </div>
-            </form>
+            </div>
 
             <div className="mt-lg mb-lg relative">
               <div

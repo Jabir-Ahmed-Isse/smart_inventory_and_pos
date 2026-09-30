@@ -1,9 +1,11 @@
 import { Kpi } from "@/components/finance/Kpi";
 import { getActiveOrg } from "@/lib/org";
+import { getActiveBranchId } from "@/lib/branches/context";
 import { money, compactMoney } from "@/lib/data";
 import { loadFinance } from "@/lib/finance/data";
 import { getAccountsWithBalance } from "@/lib/accounts/data";
 import { AccountsPanel } from "./AccountsPanel";
+import { AssignAccount } from "./AssignAccount";
 
 export const metadata = { title: "Cash & Bank — Inventory Pro" };
 
@@ -14,7 +16,7 @@ export default async function CashBankPage() {
   const currency = org?.currency ?? "USD";
   if (!org) return <div className="p-xl text-center text-on-surface-variant">Sign in to view cash &amp; bank.</div>;
 
-  const [accounts, raw] = await Promise.all([getAccountsWithBalance(org.orgId), loadFinance(org.orgId)]);
+  const [accounts, raw] = await Promise.all([getAccountsWithBalance(org.orgId), loadFinance(org.orgId, await getActiveBranchId())]);
   const canManage = CAN_MANAGE.includes(org.role);
 
   const totalBalance = accounts.reduce((s, a) => s + a.balance, 0);
@@ -22,6 +24,8 @@ export default async function CashBankPage() {
   const totalOut = accounts.reduce((s, a) => s + a.outflow, 0);
   const activeCount = accounts.filter((a) => a.isActive).length;
   const movements = raw ? raw.transactions.slice(0, 12) : [];
+  // Lite list of the active accounts for the inline "assign to account" control.
+  const accountsLite = accounts.filter((a) => a.isActive).map((a) => ({ id: a.id, name: a.name, kind: a.kind }));
 
   return (
     <main className="flex-1 p-md md:p-lg max-w-container-max mx-auto w-full">
@@ -61,6 +65,7 @@ export default async function CashBankPage() {
                     <p className="font-label-md text-label-md text-on-surface-variant">
                       {new Date(t.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     </p>
+                    {canManage && !t.accountId && <AssignAccount txId={t.id} accounts={accountsLite} />}
                   </div>
                   <span className={`font-body-sm text-body-sm font-semibold tabular-nums whitespace-nowrap ${t.type === "income" ? "text-primary" : "text-error"}`}>
                     {t.type === "income" ? "+" : "−"}{money(t.amount, currency)}

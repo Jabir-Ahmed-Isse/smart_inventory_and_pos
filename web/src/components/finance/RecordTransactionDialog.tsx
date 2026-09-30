@@ -1,18 +1,24 @@
 import { CrudDialog, fieldCls, labelCls } from "@/components/CrudDialog";
 import { createTransaction } from "@/lib/finance/actions";
+import type { AccountLite } from "@/lib/accounts/data";
 
 const INCOME_CATS = ["Sales Revenue", "Service Income", "Interest", "Capital Injection", "Other Income"];
 const EXPENSE_CATS = ["Inventory Restock", "Rent", "Utilities", "Salaries", "Marketing", "Refunds", "Other Expense"];
+
+const KIND_LABEL: Record<string, string> = { bank: "Bank", mobile: "Mobile money", cash: "Cash" };
 
 /** "Record Transaction" dialog — logs a manual income or expense. */
 export function RecordTransactionDialog({
   defaultType = "expense",
   triggerLabel = "Record Transaction",
   triggerClassName,
+  accounts = [],
 }: {
   defaultType?: "income" | "expense";
   triggerLabel?: string;
   triggerClassName?: string;
+  /** Active Cash & Bank accounts the money can be deposited into / paid from. */
+  accounts?: AccountLite[];
 }) {
   return (
     <CrudDialog
@@ -45,6 +51,22 @@ export function RecordTransactionDialog({
           ))}
         </datalist>
       </div>
+      {accounts.length > 0 && (
+        <div>
+          <label className={labelCls}>Account (money in / out)</label>
+          <select name="account_id" className={`${fieldCls} appearance-none`} defaultValue="">
+            <option value="">Not tied to an account</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name} · {KIND_LABEL[a.kind] ?? a.kind}
+              </option>
+            ))}
+          </select>
+          <p className="font-body-sm text-body-sm text-on-surface-variant mt-xs text-[13px]">
+            Pick which Cash &amp; Bank account this affects, so its balance updates. Leave blank for a general entry.
+          </p>
+        </div>
+      )}
       <div>
         <label className={labelCls}>Description</label>
         <input name="description" className={fieldCls} placeholder="What was this for?" />

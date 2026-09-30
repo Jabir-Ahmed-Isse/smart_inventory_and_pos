@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveOrg } from "@/lib/org";
+import { hasOrgWideBranchScope } from "@/lib/branches/data";
+import { resolveWriteBranchId } from "@/lib/branches/context";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -24,12 +26,22 @@ export async function createWarehouse(formData: FormData): Promise<ActionResult>
       .eq("organization_id", org.orgId);
   }
 
+  // Branch of the new warehouse. Org-wide users (owner/admin) may choose any
+  // branch, or leave it blank for a shared company-level warehouse. A
+  // branch-scoped user (e.g. a branch manager) ALWAYS creates within their own
+  // branch — their pick is ignored and we auto-assign their branch, so they can
+  // never accidentally make a shared warehouse or one for another branch.
+  let branchId = String(formData.get("branch_id") ?? "").trim() || null;
+  if (!hasOrgWideBranchScope(org)) {
+    branchId = await resolveWriteBranchId(org);
+  }
   const { error } = await supabase.from("warehouses").insert({
     organization_id: org.orgId,
     name,
     location: String(formData.get("location") ?? "").trim() || null,
     is_primary: makePrimary,
-  });
+    ...(branchId ? { branch_id: branchId } : {}),
+  } as never);
 
   if (error) return { ok: false, error: error.message };
 

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getActiveOrg, type ActiveOrg } from "@/lib/org";
+import { getActiveOrg, orgHasRole, type ActiveOrg } from "@/lib/org";
 import type { UserRole } from "@/lib/supabase/database.types";
 
 /**
@@ -25,6 +25,7 @@ export function canSettlePayments(role: UserRole): boolean {
 export async function requireRole(allowed: UserRole[]): Promise<ActiveOrg> {
   const org = await getActiveOrg();
   if (!org) redirect("/login");
-  if (!allowed.includes(org.role)) redirect("/dashboard");
+  // Multi-role aware: pass if ANY effective role (primary ∪ extra_roles) qualifies.
+  if (!orgHasRole(org, allowed)) redirect("/dashboard");
   return org;
 }

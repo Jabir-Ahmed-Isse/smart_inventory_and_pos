@@ -71,6 +71,112 @@ export async function getProductsWithStock(orgId: string): Promise<ProductRow[]>
   });
 }
 
+/**
+ * On-hand quantity per product for a SINGLE branch (summed across that branch's
+ * warehouses). Used by the POS so a cashier sees their branch's stock, not the
+ * org-wide total. Empty map if the branch has no warehouses. Untyped client
+ * because warehouses.branch_id isn't in the generated types.
+ */
+export async function getBranchStockMap(orgId: string, branchId: string): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  try {
+    const sb = (await createClient()) as unknown as import("@supabase/supabase-js").SupabaseClient;
+    const { data: whs } = await sb.from("warehouses").select("id").eq("organization_id", orgId).eq("branch_id", branchId);
+    const ids = ((whs ?? []) as { id: string }[]).map((w) => w.id);
+    if (ids.length === 0) return map;
+    const { data } = await sb.from("inventory_levels").select("product_id, quantity").eq("organization_id", orgId).in("warehouse_id", ids);
+    for (const r of (data ?? []) as { product_id: string; quantity: number }[]) {
+      map.set(r.product_id, (map.get(r.product_id) ?? 0) + (Number(r.quantity) || 0));
+    }
+    return map;
+  } catch {
+    return map;
+  }
+}
+
+/** Total / low / out product counts for a SINGLE branch (for the Products KPIs). */
+export async function getBranchStockStats(orgId: string, branchId: string): Promise<{ total: number; low: number; out: number }> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("products").select("id, min_stock").eq("organization_id", orgId);
+  const stock = await getBranchStockMap(orgId, branchId);
+  let total = 0, low = 0, out = 0;
+  for (const p of (data ?? []) as { id: string; min_stock: number }[]) {
+    total++;
+    const q = stock.get(p.id) ?? 0;
+    if (q <= 0) out++;
+    else if (p.min_stock > 0 && q <= p.min_stock) low++;
+  }
+  return { total, low, out };
+}
+
+// ---------------------------------------------------------------------------
+// Server-side paginated products (scales to large catalogs) — reads the
+// pre-aggregated product_stock_v view so qty/status filtering happens in SQL.
+// ---------------------------------------------------------------------------
+export const PRODUCTS_PAGE_SIZE = 20;
+
+export type ProductPageParams = {
+  page?: number;
+  q?: string;
+  category?: string;
+  brand?: string;
+  statuses?: StockStatus[];
+  min?: number;
+  max?: number;
+};
+export type ProductPage = { rows: ProductRow[]; total: number; pageCount: number; page: number };
+
+export async function getProductsPage(orgId: string, p: ProductPageParams): Promise<ProductPage> {
+  const supabase = await createClient();
+  const page = Math.max(1, Math.floor(p.page ?? 1));
+  const from = (page - 1) * PRODUCTS_PAGE_SIZE;
+
+  let query = supabase.from("product_stock_v").select("*", { count: "exact" }).eq("organization_id", orgId);
+  if (p.q && p.q.trim()) {
+    const safe = p.q.trim().replace(/[,()%]/g, " ");
+    query = query.or(`name.ilike.%${safe}%,sku.ilike.%${safe}%`);
+  }
+  if (p.category) query = query.eq("category_name", p.category);
+  if (p.brand) query = query.eq("brand_name", p.brand);
+  if (p.statuses && p.statuses.length > 0 && p.statuses.length < 3) query = query.in("status", p.statuses);
+  if (p.min != null && Number.isFinite(p.min)) query = query.gte("retail_price", p.min);
+  if (p.max != null && Number.isFinite(p.max)) query = query.lte("retail_price", p.max);
+
+  const { data, count } = await query.order("created_at", { ascending: true }).range(from, from + PRODUCTS_PAGE_SIZE - 1);
+  const total = count ?? 0;
+
+  const rows: ProductRow[] = (data ?? []).map((r) => {
+    const qty = r.qty ?? 0;
+    const minStock = r.min_stock ?? 0;
+    const status = (r.status ?? "out") as StockStatus;
+    const target = Math.max(minStock * 3, 1);
+    const bar = status === "out" ? 0 : Math.min(100, Math.round((qty / target) * 100));
+    return {
+      id: r.id ?? "",
+      name: r.name ?? "—",
+      sku: r.sku ?? "",
+      price: r.retail_price ?? 0,
+      category: r.category_name ?? "—",
+      brand: r.brand_name ?? "—",
+      qty,
+      minStock,
+      status,
+      bar,
+      imageUrl: r.image_url,
+    };
+  });
+
+  return { rows, total, pageCount: Math.max(1, Math.ceil(total / PRODUCTS_PAGE_SIZE)), page };
+}
+
+/** Total / low / out counts across the whole catalog (for the KPI cards). */
+export async function getProductStatsCount(orgId: string): Promise<ProductStats> {
+  const supabase = await createClient();
+  const base = () => supabase.from("product_stock_v").select("id", { count: "exact", head: true }).eq("organization_id", orgId);
+  const [t, l, o] = await Promise.all([base(), base().eq("status", "low"), base().eq("status", "out")]);
+  return { total: t.count ?? 0, low: l.count ?? 0, out: o.count ?? 0 };
+}
+
 export type ProductStats = { total: number; low: number; out: number };
 
 export function computeProductStats(rows: ProductRow[]): ProductStats {
@@ -92,7 +198,7 @@ export type DashboardMetrics = {
 };
 
 /** Aggregate metrics for the executive dashboard, derived from live org data. */
-export async function getDashboardMetrics(orgId: string): Promise<DashboardMetrics> {
+export async function getDashboardMetrics(orgId: string, branchId?: string | null): Promise<DashboardMetrics> {
   const supabase = await createClient();
 
   const [products, customersRes, txnRes] = await Promise.all([
@@ -103,20 +209,35 @@ export async function getDashboardMetrics(orgId: string): Promise<DashboardMetri
       .eq("organization_id", orgId),
     supabase
       .from("transactions")
-      .select("type, amount")
+      .select("type, amount, branch_id")
       .eq("organization_id", orgId),
   ]);
 
-  const inventoryValue = products.reduce((sum, p) => sum + p.qty * p.price, 0);
-  const lowStockItems = products.filter(
+  // Branch-scope inventory when a branch is in context, so a branch manager sees
+  // their branch's stock — not the org-wide total (inventory_levels has no branch RLS).
+  let invProducts = products;
+  if (branchId) {
+    const stock = await getBranchStockMap(orgId, branchId);
+    invProducts = products.map((p) => {
+      const qty = stock.get(p.id) ?? 0;
+      const status: StockStatus = qty <= 0 ? "out" : p.minStock > 0 && qty <= p.minStock ? "low" : "in";
+      const target = Math.max(p.minStock * 3, 1);
+      const bar = status === "out" ? 0 : Math.min(100, Math.round((qty / target) * 100));
+      return { ...p, qty, status, bar };
+    });
+  }
+
+  const inventoryValue = invProducts.reduce((sum, p) => sum + p.qty * p.price, 0);
+  const lowStockItems = invProducts.filter(
     (p) => p.status === "low" || p.status === "out",
   );
-  const topProducts = products
+  const topProducts = invProducts
     .map((p) => ({ ...p, value: p.qty * p.price }))
     .sort((a, b) => b.value - a.value)
     .slice(0, 4);
 
-  const txns = (txnRes.data ?? []) as { type: "income" | "expense"; amount: number }[];
+  const txns = ((txnRes.data ?? []) as unknown as { type: "income" | "expense"; amount: number; branch_id?: string | null }[])
+    .filter((t) => !branchId || t.branch_id === branchId);
   const netProfit = txns.reduce(
     (sum, t) => sum + (t.type === "income" ? t.amount : -t.amount),
     0,
@@ -143,6 +264,16 @@ export function money(amount: number, currency = "USD"): string {
 }
 
 export function compactMoney(amount: number, currency = "USD"): string {
+  // Below 1M show the EXACT figure with thousands separators (e.g. $1,010) so
+  // KPIs never mislead. Only genuinely large numbers compact (e.g. $1.3M) to
+  // keep the KPI cards from overflowing.
+  if (Math.abs(amount) < 1_000_000) {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: amount % 1 === 0 ? 0 : 2,
+    }).format(amount);
+  }
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency,
@@ -532,6 +663,9 @@ export type ProductEdit = {
   imageUrl: string | null;
   costPrice: number;
   retailPrice: number;
+  minPrice: number | null;
+  maxPrice: number | null;
+  isFeatured: boolean;
   taxRate: number;
   minStock: number;
   reorderPoint: number;
@@ -540,16 +674,51 @@ export type ProductEdit = {
   stock: Record<string, number>; // warehouseId -> quantity
 };
 
+export type PriceBounds = { min: number | null; max: number | null };
+
+/**
+ * Per-product selling-price band (min/max), keyed by product id. Migration-safe:
+ * if the columns aren't applied yet the query errors and we return an empty map,
+ * so the POS simply allows the retail price with no bounds. Never blocks selling.
+ */
+export async function getProductPriceBounds(orgId: string): Promise<Record<string, PriceBounds>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select("id, min_price, max_price")
+    .eq("organization_id", orgId);
+  if (error) return {};
+  const out: Record<string, PriceBounds> = {};
+  for (const r of (data ?? []) as { id: string; min_price: number | null; max_price: number | null }[]) {
+    out[r.id] = { min: r.min_price ?? null, max: r.max_price ?? null };
+  }
+  return out;
+}
+
+/**
+ * Ids of products flagged as featured (for the POS quick-add strip).
+ * Migration-safe: returns [] if the is_featured column isn't applied yet.
+ */
+export async function getFeaturedProductIds(orgId: string): Promise<string[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select("id")
+    .eq("organization_id", orgId)
+    .eq("is_featured", true);
+  if (error) return [];
+  return ((data ?? []) as { id: string }[]).map((r) => r.id);
+}
+
 export async function getProductById(orgId: string, id: string): Promise<ProductEdit | null> {
   const supabase = await createClient();
-  const { data: p } = await supabase
-    .from("products")
-    .select(
-      "id, name, sku, barcode, description, image_url, cost_price, retail_price, tax_rate, min_stock, reorder_point, category_id, brand_id",
-    )
-    .eq("organization_id", orgId)
-    .eq("id", id)
-    .maybeSingle();
+  const baseCols = "id, name, sku, barcode, description, image_url, cost_price, retail_price, tax_rate, min_stock, reorder_point, category_id, brand_id";
+  // Migration-safe: try with the price-band columns, fall back if not applied yet.
+  let full = await supabase.from("products").select(`${baseCols}, min_price, max_price, is_featured`).eq("organization_id", orgId).eq("id", id).maybeSingle();
+  if (full.error) {
+    full = await supabase.from("products").select(baseCols).eq("organization_id", orgId).eq("id", id).maybeSingle();
+  }
+  const p = full.data as (Record<string, unknown> & { id: string }) | null;
   if (!p) return null;
 
   const { data: levels } = await supabase
@@ -561,20 +730,25 @@ export async function getProductById(orgId: string, id: string): Promise<Product
   const stock: Record<string, number> = {};
   for (const l of levels ?? []) stock[l.warehouse_id] = l.quantity;
 
+  const numOrNull = (v: unknown) => (typeof v === "number" ? v : null);
+
   return {
-    id: p.id,
-    name: p.name,
-    sku: p.sku,
-    barcode: p.barcode,
-    description: p.description,
-    imageUrl: p.image_url,
-    costPrice: p.cost_price,
-    retailPrice: p.retail_price,
-    taxRate: p.tax_rate,
-    minStock: p.min_stock,
-    reorderPoint: p.reorder_point,
-    categoryId: p.category_id,
-    brandId: p.brand_id,
+    id: String(p.id),
+    name: p.name as string,
+    sku: p.sku as string,
+    barcode: (p.barcode as string | null) ?? null,
+    description: (p.description as string | null) ?? null,
+    imageUrl: (p.image_url as string | null) ?? null,
+    costPrice: (p.cost_price as number) ?? 0,
+    retailPrice: (p.retail_price as number) ?? 0,
+    minPrice: numOrNull(p.min_price),
+    maxPrice: numOrNull(p.max_price),
+    isFeatured: p.is_featured === true,
+    taxRate: (p.tax_rate as number) ?? 0,
+    minStock: (p.min_stock as number) ?? 0,
+    reorderPoint: (p.reorder_point as number) ?? 0,
+    categoryId: (p.category_id as string | null) ?? null,
+    brandId: (p.brand_id as string | null) ?? null,
     stock,
   };
 }
@@ -947,6 +1121,125 @@ export type SalesOrderRow = {
   partiallyPaid: boolean; // some money in, but not the whole total
 };
 
+export type EditOrderItem = { productId: string; quantity: number; unitPrice: number };
+export type EditOrder = {
+  id: string;
+  orderNumber: string;
+  /** "held" = a draft parked for later; "pending" = a placed but unsettled (due) order. */
+  kind: "held" | "pending";
+  discount: number;
+  customerId: string | null;
+  customerName: string | null;
+  items: EditOrderItem[];
+};
+
+/**
+ * Loads a HELD (draft) or PENDING (processing / due) order for re-editing at the
+ * POS. Returns null if not found, not this org's, or already completed —
+ * a settled sale is final.
+ */
+export async function getOrderForEdit(orgId: string, orderId: string): Promise<EditOrder | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("sales_orders")
+    .select("id, order_number, status, discount, customer_id, customers(name), sales_order_items(product_id, quantity, unit_price)")
+    .eq("organization_id", orgId)
+    .eq("id", orderId)
+    .maybeSingle();
+  const o = data as {
+    id: string; order_number: string; status: string; discount: number | null; customer_id: string | null;
+    customers: { name: string } | null;
+    sales_order_items: { product_id: string | null; quantity: number; unit_price: number }[] | null;
+  } | null;
+  if (!o || (o.status !== "processing" && o.status !== "draft")) return null;
+  return {
+    id: o.id,
+    orderNumber: o.order_number,
+    kind: o.status === "draft" ? "held" : "pending",
+    discount: o.discount ?? 0,
+    customerId: o.customer_id,
+    customerName: o.customers?.name ?? null,
+    items: (o.sales_order_items ?? [])
+      .filter((li) => li.product_id)
+      .map((li) => ({ productId: li.product_id as string, quantity: li.quantity, unitPrice: li.unit_price })),
+  };
+}
+
+export type RecentSaleRow = { id: string; orderNumber: string; total: number; itemCount: number; customerName: string; date: string; time: string; paid: boolean };
+
+/** Recently completed POS sales for the in-POS "Latest Sales" tab (view + reprint). */
+export async function getRecentSales(orgId: string, limit = 20): Promise<RecentSaleRow[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("sales_orders")
+    .select("id, order_number, total, status, created_at, customers(name), sales_order_items(quantity)")
+    .eq("organization_id", orgId)
+    .in("status", ["completed", "processing"])
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return ((data ?? []) as {
+    id: string; order_number: string; total: number; status: string; created_at: string;
+    customers: { name: string } | null; sales_order_items: { quantity: number }[] | null;
+  }[]).map((o) => ({
+    id: o.id,
+    orderNumber: o.order_number,
+    total: o.total,
+    itemCount: (o.sales_order_items ?? []).reduce((s, i) => s + i.quantity, 0),
+    customerName: o.customers?.name ?? "Walk-in customer",
+    date: fmtDate(o.created_at),
+    time: fmtTime(o.created_at),
+    paid: o.status === "completed",
+  }));
+}
+
+export type PendingOrderRow = { id: string; orderNumber: string; total: number; itemCount: number; customerName: string; date: string };
+
+/** Lists the org's pending (processing) orders so a cashier can resume/edit one. */
+export async function getPendingOrders(orgId: string): Promise<PendingOrderRow[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("sales_orders")
+    .select("id, order_number, total, created_at, customers(name), sales_order_items(quantity)")
+    .eq("organization_id", orgId)
+    .eq("status", "processing")
+    .order("created_at", { ascending: false })
+    .limit(50);
+  return ((data ?? []) as {
+    id: string; order_number: string; total: number; created_at: string;
+    customers: { name: string } | null; sales_order_items: { quantity: number }[] | null;
+  }[]).map((o) => ({
+    id: o.id,
+    orderNumber: o.order_number,
+    total: o.total,
+    itemCount: (o.sales_order_items ?? []).reduce((s, i) => s + i.quantity, 0),
+    customerName: o.customers?.name ?? "Walk-in customer",
+    date: fmtDate(o.created_at),
+  }));
+}
+
+/** Lists the org's HELD (draft) orders so a cashier can resume one at the POS. */
+export async function getHeldOrders(orgId: string): Promise<PendingOrderRow[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("sales_orders")
+    .select("id, order_number, total, created_at, customers(name), sales_order_items(quantity)")
+    .eq("organization_id", orgId)
+    .eq("status", "draft")
+    .order("created_at", { ascending: false })
+    .limit(50);
+  return ((data ?? []) as {
+    id: string; order_number: string; total: number; created_at: string;
+    customers: { name: string } | null; sales_order_items: { quantity: number }[] | null;
+  }[]).map((o) => ({
+    id: o.id,
+    orderNumber: o.order_number,
+    total: o.total,
+    itemCount: (o.sales_order_items ?? []).reduce((s, i) => s + i.quantity, 0),
+    customerName: o.customers?.name ?? "Walk-in customer",
+    date: fmtDate(o.created_at),
+  }));
+}
+
 export async function getSalesOrders(orgId: string, limit = 100): Promise<SalesOrderRow[]> {
   const supabase = await createClient();
   const [ordersRes, txRes] = await Promise.all([
@@ -1147,7 +1440,7 @@ export type ChartData = {
 
 const DONUT_COLORS = ["#006c49", "#0058be", "#ffb95f", "#8a5cf6", "#dde4dd"];
 
-export async function getDashboardCharts(orgId: string): Promise<ChartData> {
+export async function getDashboardCharts(orgId: string, branchId?: string | null): Promise<ChartData> {
   const supabase = await createClient();
 
   // Last 7 days revenue, bucketed by day.
@@ -1158,7 +1451,7 @@ export async function getDashboardCharts(orgId: string): Promise<ChartData> {
   const [ordersRes, products] = await Promise.all([
     supabase
       .from("sales_orders")
-      .select("total, status, created_at")
+      .select("total, status, created_at, branch_id")
       .eq("organization_id", orgId)
       .gte("created_at", start.toISOString()),
     getProductsWithStock(orgId),
@@ -1174,19 +1467,22 @@ export async function getDashboardCharts(orgId: string): Promise<ChartData> {
     });
   }
   const byDay = new Map(days.map((d) => [d.key, 0]));
-  for (const o of ordersRes.data ?? []) {
+  for (const o of (ordersRes.data ?? []) as unknown as { total: number; status: string; created_at: string; branch_id?: string | null }[]) {
     if (o.status === "cancelled") continue;
+    if (branchId && o.branch_id !== branchId) continue;
     const key = new Date(o.created_at).toISOString().slice(0, 10);
     if (byDay.has(key)) byDay.set(key, (byDay.get(key) ?? 0) + (o.total ?? 0));
   }
 
-  // Inventory units by category (top 4 + Other).
+  // Inventory units by category (top 4 + Other) — branch-scoped when in context.
+  const branchStock = branchId ? await getBranchStockMap(orgId, branchId) : null;
   const byCat = new Map<string, number>();
   let totalUnits = 0;
   for (const p of products) {
-    totalUnits += p.qty;
+    const qty = branchStock ? (branchStock.get(p.id) ?? 0) : p.qty;
+    totalUnits += qty;
     const cat = p.category && p.category !== "—" ? p.category : "Uncategorized";
-    byCat.set(cat, (byCat.get(cat) ?? 0) + p.qty);
+    byCat.set(cat, (byCat.get(cat) ?? 0) + qty);
   }
   const sorted = [...byCat.entries()].sort((a, b) => b[1] - a[1]);
   const top = sorted.slice(0, 4);
@@ -1208,16 +1504,34 @@ export async function getDashboardCharts(orgId: string): Promise<ChartData> {
 // Today's sales (dashboard KPI)
 // ---------------------------------------------------------------------------
 export async function getTodaySales(orgId: string): Promise<{ total: number; count: number }> {
-  const supabase = await createClient();
   const start = new Date();
   start.setHours(0, 0, 0, 0);
-  const { data } = await supabase
-    .from("sales_orders")
-    .select("total, status")
-    .eq("organization_id", orgId)
-    .gte("created_at", start.toISOString());
+  return getSalesInRange(orgId, start.toISOString());
+}
 
-  const rows = (data ?? []).filter((r) => r.status !== "cancelled");
+/**
+ * Sales total + order count for an arbitrary date range (defaults to "since
+ * startISO, up to now"). Cancelled orders are excluded. Powers the dashboard's
+ * customizable period selector (Today / 7d / 30d / This month / Custom).
+ */
+export async function getSalesInRange(
+  orgId: string,
+  startISO: string,
+  endISO?: string,
+  branchId?: string | null,
+): Promise<{ total: number; count: number }> {
+  const supabase = await createClient();
+  let q = supabase
+    .from("sales_orders")
+    .select("total, status, branch_id")
+    .eq("organization_id", orgId)
+    .gte("created_at", startISO);
+  if (endISO) q = q.lte("created_at", endISO);
+  const { data } = await q;
+
+  const rows = ((data ?? []) as unknown as { total: number; status: string; branch_id?: string | null }[])
+    .filter((r) => r.status !== "cancelled")
+    .filter((r) => !branchId || r.branch_id === branchId);
   return {
     total: rows.reduce((s, r) => s + r.total, 0),
     count: rows.length,

@@ -1,4 +1,5 @@
 import { getActiveOrg } from "@/lib/org";
+import { getActiveBranchId } from "@/lib/branches/context";
 import { getProductsWithStock, getSalesOrders, getCustomers, getPurchaseOrders, money } from "@/lib/data";
 import { loadFinance } from "@/lib/finance/data";
 import { CustomReportBuilder, type Dataset } from "./CustomReportBuilder";
@@ -15,7 +16,7 @@ export default async function CustomReportPage() {
     getSalesOrders(org.orgId, 500),
     getCustomers(org.orgId),
     getPurchaseOrders(org.orgId, 500),
-    loadFinance(org.orgId),
+    loadFinance(org.orgId, await getActiveBranchId()),
   ]);
   const m = (n: number) => money(n, currency);
 

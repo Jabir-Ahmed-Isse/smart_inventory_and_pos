@@ -17,7 +17,11 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="light">
+    // suppressHydrationWarning: browser extensions (Grammarly, QuillBot, dark-mode
+    // tools, etc.) inject attributes like data-qb-installed onto <html>/<body>
+    // before React hydrates. That is outside our control and harmless, so we let
+    // React tolerate attribute diffs on this element instead of warning.
+    <html lang="en" className="light" suppressHydrationWarning>
       <head>
         {/* Fonts + icon set loaded exactly as the source designs to preserve metrics. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -31,7 +35,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="bg-background text-on-background antialiased">
+      <body className="bg-background text-on-background antialiased" suppressHydrationWarning>
         {children}
       </body>
     </html>

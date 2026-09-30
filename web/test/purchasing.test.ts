@@ -28,7 +28,10 @@ describe("money formatting", () => {
     expect(money(1000, "USD")).toBe("$1,000");
     expect(money(12.5, "USD")).toBe("$12.50");
   });
-  it("compact-formats large amounts", () => {
-    expect(compactMoney(1500, "USD")).toBe("$1.5K");
+  it("shows exact amounts below 1M, compacts only millions+", () => {
+    expect(compactMoney(1010, "USD")).toBe("$1,010");
+    expect(compactMoney(1500, "USD")).toBe("$1,500");
+    expect(compactMoney(999999, "USD")).toBe("$999,999");
+    expect(compactMoney(1_250_000, "USD")).toBe("$1.3M");
   });
 });

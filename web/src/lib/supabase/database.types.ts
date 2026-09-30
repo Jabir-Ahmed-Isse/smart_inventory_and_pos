@@ -275,6 +275,21 @@ export type Database = {
           created_by: string | null
           currency: string
           id: string
+          logo_url: string | null
+          legal_name: string | null
+          tagline: string | null
+          industry: string | null
+          email: string | null
+          phone: string | null
+          website: string | null
+          tax_id: string | null
+          registration_number: string | null
+          address_line1: string | null
+          address_line2: string | null
+          city: string | null
+          state_region: string | null
+          postal_code: string | null
+          country: string | null
           is_active: boolean
           name: string
           slug: string | null
@@ -287,6 +302,21 @@ export type Database = {
           created_by?: string | null
           currency?: string
           id?: string
+          logo_url?: string | null
+          legal_name?: string | null
+          tagline?: string | null
+          industry?: string | null
+          email?: string | null
+          phone?: string | null
+          website?: string | null
+          tax_id?: string | null
+          registration_number?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
+          city?: string | null
+          state_region?: string | null
+          postal_code?: string | null
+          country?: string | null
           is_active?: boolean
           name: string
           slug?: string | null
@@ -299,6 +329,21 @@ export type Database = {
           created_by?: string | null
           currency?: string
           id?: string
+          logo_url?: string | null
+          legal_name?: string | null
+          tagline?: string | null
+          industry?: string | null
+          email?: string | null
+          phone?: string | null
+          website?: string | null
+          tax_id?: string | null
+          registration_number?: string | null
+          address_line1?: string | null
+          address_line2?: string | null
+          city?: string | null
+          state_region?: string | null
+          postal_code?: string | null
+          country?: string | null
           is_active?: boolean
           name?: string
           slug?: string | null
@@ -324,6 +369,9 @@ export type Database = {
           organization_id: string
           reorder_point: number
           retail_price: number
+          is_featured: boolean
+          min_price: number | null
+          max_price: number | null
           sku: string
           status: Database["public"]["Enums"]["product_status"]
           supplier_id: string | null
@@ -346,6 +394,9 @@ export type Database = {
           organization_id: string
           reorder_point?: number
           retail_price?: number
+          is_featured?: boolean
+          min_price?: number | null
+          max_price?: number | null
           sku: string
           status?: Database["public"]["Enums"]["product_status"]
           supplier_id?: string | null
@@ -368,6 +419,9 @@ export type Database = {
           organization_id?: string
           reorder_point?: number
           retail_price?: number
+          is_featured?: boolean
+          min_price?: number | null
+          max_price?: number | null
           sku?: string
           status?: Database["public"]["Enums"]["product_status"]
           supplier_id?: string | null
@@ -912,6 +966,1077 @@ export type Database = {
           },
         ]
       }
+      chart_of_accounts: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          is_system: boolean
+          name: string
+          organization_id: string
+          parent_id: string | null
+          subtype: string | null
+          type: Database["public"]["Enums"]["account_type"]
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          name: string
+          organization_id: string
+          parent_id?: string | null
+          subtype?: string | null
+          type: Database["public"]["Enums"]["account_type"]
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_system?: boolean
+          name?: string
+          organization_id?: string
+          parent_id?: string | null
+          subtype?: string | null
+          type?: Database["public"]["Enums"]["account_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      account_mappings: {
+        Row: {
+          account_id: string
+          created_at: string
+          id: string
+          key: string
+          organization_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          id?: string
+          key: string
+          organization_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          id?: string
+          key?: string
+          organization_id?: string
+        }
+        Relationships: []
+      }
+      journal_entries: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          entry_date: string
+          entry_number: string
+          id: string
+          memo: string | null
+          organization_id: string
+          posted_at: string | null
+          reference: string | null
+          source: Database["public"]["Enums"]["journal_source"]
+          source_id: string | null
+          status: Database["public"]["Enums"]["journal_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          entry_date?: string
+          entry_number: string
+          id?: string
+          memo?: string | null
+          organization_id: string
+          posted_at?: string | null
+          reference?: string | null
+          source?: Database["public"]["Enums"]["journal_source"]
+          source_id?: string | null
+          status?: Database["public"]["Enums"]["journal_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          entry_date?: string
+          entry_number?: string
+          id?: string
+          memo?: string | null
+          organization_id?: string
+          posted_at?: string | null
+          reference?: string | null
+          source?: Database["public"]["Enums"]["journal_source"]
+          source_id?: string | null
+          status?: Database["public"]["Enums"]["journal_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      journal_lines: {
+        Row: {
+          account_id: string
+          credit: number
+          debit: number
+          description: string | null
+          id: string
+          journal_entry_id: string
+          line_no: number
+          organization_id: string
+        }
+        Insert: {
+          account_id: string
+          credit?: number
+          debit?: number
+          description?: string | null
+          id?: string
+          journal_entry_id: string
+          line_no?: number
+          organization_id: string
+        }
+        Update: {
+          account_id?: string
+          credit?: number
+          debit?: number
+          description?: string | null
+          id?: string
+          journal_entry_id?: string
+          line_no?: number
+          organization_id?: string
+        }
+        Relationships: []
+      }
+      departments: {
+        Row: {
+          code: string | null
+          created_at: string
+          description: string | null
+          id: string
+          manager_employee_id: string | null
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          manager_employee_id?: string | null
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          manager_employee_id?: string | null
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      positions: {
+        Row: {
+          created_at: string
+          department_id: string | null
+          description: string | null
+          id: string
+          organization_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          department_id?: string | null
+          description?: string | null
+          id?: string
+          organization_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string | null
+          description?: string | null
+          id?: string
+          organization_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      employees: {
+        Row: {
+          address: string | null
+          base_salary: number
+          bank_account: string | null
+          bank_name: string | null
+          created_at: string
+          date_of_birth: string | null
+          department_id: string | null
+          email: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          employee_number: string
+          employment_type: Database["public"]["Enums"]["employment_type"]
+          first_name: string
+          gender: string | null
+          hire_date: string
+          id: string
+          last_name: string | null
+          manager_id: string | null
+          mobile_money: string | null
+          national_id: string | null
+          notes: string | null
+          organization_id: string
+          pay_frequency: Database["public"]["Enums"]["pay_frequency"]
+          phone: string | null
+          photo_url: string | null
+          position_id: string | null
+          status: Database["public"]["Enums"]["employee_status"]
+          termination_date: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          address?: string | null
+          base_salary?: number
+          bank_account?: string | null
+          bank_name?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          department_id?: string | null
+          email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          employee_number: string
+          employment_type?: Database["public"]["Enums"]["employment_type"]
+          first_name: string
+          gender?: string | null
+          hire_date?: string
+          id?: string
+          last_name?: string | null
+          manager_id?: string | null
+          mobile_money?: string | null
+          national_id?: string | null
+          notes?: string | null
+          organization_id: string
+          pay_frequency?: Database["public"]["Enums"]["pay_frequency"]
+          phone?: string | null
+          photo_url?: string | null
+          position_id?: string | null
+          status?: Database["public"]["Enums"]["employee_status"]
+          termination_date?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          address?: string | null
+          base_salary?: number
+          bank_account?: string | null
+          bank_name?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          department_id?: string | null
+          email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          employee_number?: string
+          employment_type?: Database["public"]["Enums"]["employment_type"]
+          first_name?: string
+          gender?: string | null
+          hire_date?: string
+          id?: string
+          last_name?: string | null
+          manager_id?: string | null
+          mobile_money?: string | null
+          national_id?: string | null
+          notes?: string | null
+          organization_id?: string
+          pay_frequency?: Database["public"]["Enums"]["pay_frequency"]
+          phone?: string | null
+          photo_url?: string | null
+          position_id?: string | null
+          status?: Database["public"]["Enums"]["employee_status"]
+          termination_date?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      leave_types: {
+        Row: {
+          code: string | null
+          color: string | null
+          created_at: string
+          default_days: number
+          id: string
+          is_paid: boolean
+          name: string
+          organization_id: string
+        }
+        Insert: {
+          code?: string | null
+          color?: string | null
+          created_at?: string
+          default_days?: number
+          id?: string
+          is_paid?: boolean
+          name: string
+          organization_id: string
+        }
+        Update: {
+          code?: string | null
+          color?: string | null
+          created_at?: string
+          default_days?: number
+          id?: string
+          is_paid?: boolean
+          name?: string
+          organization_id?: string
+        }
+        Relationships: []
+      }
+      leave_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          days: number
+          employee_id: string
+          end_date: string
+          id: string
+          leave_type_id: string | null
+          organization_id: string
+          reason: string | null
+          start_date: string
+          status: Database["public"]["Enums"]["leave_status"]
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          days?: number
+          employee_id: string
+          end_date: string
+          id?: string
+          leave_type_id?: string | null
+          organization_id: string
+          reason?: string | null
+          start_date: string
+          status?: Database["public"]["Enums"]["leave_status"]
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          days?: number
+          employee_id?: string
+          end_date?: string
+          id?: string
+          leave_type_id?: string | null
+          organization_id?: string
+          reason?: string | null
+          start_date?: string
+          status?: Database["public"]["Enums"]["leave_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      attendance: {
+        Row: {
+          check_in: string | null
+          check_out: string | null
+          created_at: string
+          employee_id: string
+          hours: number
+          id: string
+          notes: string | null
+          organization_id: string
+          status: Database["public"]["Enums"]["attendance_status"]
+          work_date: string
+        }
+        Insert: {
+          check_in?: string | null
+          check_out?: string | null
+          created_at?: string
+          employee_id: string
+          hours?: number
+          id?: string
+          notes?: string | null
+          organization_id: string
+          status?: Database["public"]["Enums"]["attendance_status"]
+          work_date?: string
+        }
+        Update: {
+          check_in?: string | null
+          check_out?: string | null
+          created_at?: string
+          employee_id?: string
+          hours?: number
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          status?: Database["public"]["Enums"]["attendance_status"]
+          work_date?: string
+        }
+        Relationships: []
+      }
+      fixed_assets: {
+        Row: {
+          accumulated_depreciation: number
+          acquisition_date: string
+          asset_number: string
+          category: string | null
+          cost: number
+          created_at: string
+          created_by: string | null
+          id: string
+          journal_entry_id: string | null
+          method: string
+          name: string
+          notes: string | null
+          organization_id: string
+          salvage_value: number
+          status: Database["public"]["Enums"]["asset_status"]
+          updated_at: string
+          useful_life_months: number
+        }
+        Insert: {
+          accumulated_depreciation?: number
+          acquisition_date?: string
+          asset_number: string
+          category?: string | null
+          cost?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          method?: string
+          name: string
+          notes?: string | null
+          organization_id: string
+          salvage_value?: number
+          status?: Database["public"]["Enums"]["asset_status"]
+          updated_at?: string
+          useful_life_months?: number
+        }
+        Update: {
+          accumulated_depreciation?: number
+          acquisition_date?: string
+          asset_number?: string
+          category?: string | null
+          cost?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          method?: string
+          name?: string
+          notes?: string | null
+          organization_id?: string
+          salvage_value?: number
+          status?: Database["public"]["Enums"]["asset_status"]
+          updated_at?: string
+          useful_life_months?: number
+        }
+        Relationships: []
+      }
+      depreciation_entries: {
+        Row: {
+          amount: number
+          asset_id: string
+          created_at: string
+          id: string
+          journal_entry_id: string | null
+          organization_id: string
+          period: string
+        }
+        Insert: {
+          amount?: number
+          asset_id: string
+          created_at?: string
+          id?: string
+          journal_entry_id?: string | null
+          organization_id: string
+          period: string
+        }
+        Update: {
+          amount?: number
+          asset_id?: string
+          created_at?: string
+          id?: string
+          journal_entry_id?: string | null
+          organization_id?: string
+          period?: string
+        }
+        Relationships: []
+      }
+      budgets: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          fiscal_year: number
+          id: string
+          name: string
+          notes: string | null
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          fiscal_year: number
+          id?: string
+          name: string
+          notes?: string | null
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          fiscal_year?: number
+          id?: string
+          name?: string
+          notes?: string | null
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      budget_lines: {
+        Row: {
+          account_id: string
+          annual_amount: number
+          budget_id: string
+          id: string
+          organization_id: string
+        }
+        Insert: {
+          account_id: string
+          annual_amount?: number
+          budget_id: string
+          id?: string
+          organization_id: string
+        }
+        Update: {
+          account_id?: string
+          annual_amount?: number
+          budget_id?: string
+          id?: string
+          organization_id?: string
+        }
+        Relationships: []
+      }
+      expense_categories: {
+        Row: {
+          account_id: string | null
+          active: boolean
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          organization_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          organization_id: string
+        }
+        Update: {
+          account_id?: string | null
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          organization_id?: string
+        }
+        Relationships: []
+      }
+      recurring_expenses: {
+        Row: {
+          active: boolean
+          amount: number
+          category_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          next_due_date: string
+          notes: string | null
+          organization_id: string
+          recurrence: Database["public"]["Enums"]["recurrence"]
+          start_date: string
+          supplier_id: string | null
+          tax_amount: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          next_due_date?: string
+          notes?: string | null
+          organization_id: string
+          recurrence?: Database["public"]["Enums"]["recurrence"]
+          start_date?: string
+          supplier_id?: string | null
+          tax_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          amount?: number
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          next_due_date?: string
+          notes?: string | null
+          organization_id?: string
+          recurrence?: Database["public"]["Enums"]["recurrence"]
+          start_date?: string
+          supplier_id?: string | null
+          tax_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      expenses: {
+        Row: {
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          category_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          due_date: string | null
+          expense_date: string
+          expense_number: string
+          id: string
+          journal_entry_id: string | null
+          notes: string | null
+          organization_id: string
+          payment_entry_id: string | null
+          recurring_id: string | null
+          status: Database["public"]["Enums"]["expense_status"]
+          supplier_id: string | null
+          tax_amount: number
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          expense_date?: string
+          expense_number: string
+          id?: string
+          journal_entry_id?: string | null
+          notes?: string | null
+          organization_id: string
+          payment_entry_id?: string | null
+          recurring_id?: string | null
+          status?: Database["public"]["Enums"]["expense_status"]
+          supplier_id?: string | null
+          tax_amount?: number
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_date?: string | null
+          expense_date?: string
+          expense_number?: string
+          id?: string
+          journal_entry_id?: string | null
+          notes?: string | null
+          organization_id?: string
+          payment_entry_id?: string | null
+          recurring_id?: string | null
+          status?: Database["public"]["Enums"]["expense_status"]
+          supplier_id?: string | null
+          tax_amount?: number
+          total?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      salary_components: {
+        Row: {
+          active: boolean
+          amount: number
+          applies_to_all: boolean
+          calc_method: Database["public"]["Enums"]["calc_method"]
+          code: string | null
+          component_type: Database["public"]["Enums"]["component_type"]
+          created_at: string
+          id: string
+          is_statutory: boolean
+          is_taxable: boolean
+          name: string
+          organization_id: string
+          rate: number
+        }
+        Insert: {
+          active?: boolean
+          amount?: number
+          applies_to_all?: boolean
+          calc_method?: Database["public"]["Enums"]["calc_method"]
+          code?: string | null
+          component_type: Database["public"]["Enums"]["component_type"]
+          created_at?: string
+          id?: string
+          is_statutory?: boolean
+          is_taxable?: boolean
+          name: string
+          organization_id: string
+          rate?: number
+        }
+        Update: {
+          active?: boolean
+          amount?: number
+          applies_to_all?: boolean
+          calc_method?: Database["public"]["Enums"]["calc_method"]
+          code?: string | null
+          component_type?: Database["public"]["Enums"]["component_type"]
+          created_at?: string
+          id?: string
+          is_statutory?: boolean
+          is_taxable?: boolean
+          name?: string
+          organization_id?: string
+          rate?: number
+        }
+        Relationships: []
+      }
+      employee_components: {
+        Row: {
+          active: boolean
+          amount: number | null
+          component_id: string
+          created_at: string
+          employee_id: string
+          id: string
+          organization_id: string
+          rate: number | null
+        }
+        Insert: {
+          active?: boolean
+          amount?: number | null
+          component_id: string
+          created_at?: string
+          employee_id: string
+          id?: string
+          organization_id: string
+          rate?: number | null
+        }
+        Update: {
+          active?: boolean
+          amount?: number | null
+          component_id?: string
+          created_at?: string
+          employee_id?: string
+          id?: string
+          organization_id?: string
+          rate?: number | null
+        }
+        Relationships: []
+      }
+      pay_adjustments: {
+        Row: {
+          adjustment_type: Database["public"]["Enums"]["component_type"]
+          amount: number
+          created_at: string
+          created_by: string | null
+          employee_id: string
+          id: string
+          label: string
+          organization_id: string
+          pay_run_id: string
+        }
+        Insert: {
+          adjustment_type: Database["public"]["Enums"]["component_type"]
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          employee_id: string
+          id?: string
+          label: string
+          organization_id: string
+          pay_run_id: string
+        }
+        Update: {
+          adjustment_type?: Database["public"]["Enums"]["component_type"]
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          employee_id?: string
+          id?: string
+          label?: string
+          organization_id?: string
+          pay_run_id?: string
+        }
+        Relationships: []
+      }
+      pay_runs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          journal_entry_id: string | null
+          name: string
+          notes: string | null
+          organization_id: string
+          pay_date: string
+          payment_entry_id: string | null
+          period_end: string
+          period_start: string
+          status: Database["public"]["Enums"]["payrun_status"]
+          total_deductions: number
+          total_gross: number
+          total_net: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          name: string
+          notes?: string | null
+          organization_id: string
+          pay_date?: string
+          payment_entry_id?: string | null
+          period_end: string
+          period_start: string
+          status?: Database["public"]["Enums"]["payrun_status"]
+          total_deductions?: number
+          total_gross?: number
+          total_net?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          journal_entry_id?: string | null
+          name?: string
+          notes?: string | null
+          organization_id?: string
+          pay_date?: string
+          payment_entry_id?: string | null
+          period_end?: string
+          period_start?: string
+          status?: Database["public"]["Enums"]["payrun_status"]
+          total_deductions?: number
+          total_gross?: number
+          total_net?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      payslips: {
+        Row: {
+          advance_repayment: number
+          basic: number
+          created_at: string
+          employee_id: string
+          gross: number
+          id: string
+          net_pay: number
+          organization_id: string
+          pay_run_id: string
+          status: Database["public"]["Enums"]["payslip_status"]
+          total_deductions: number
+          total_earnings: number
+        }
+        Insert: {
+          advance_repayment?: number
+          basic?: number
+          created_at?: string
+          employee_id: string
+          gross?: number
+          id?: string
+          net_pay?: number
+          organization_id: string
+          pay_run_id: string
+          status?: Database["public"]["Enums"]["payslip_status"]
+          total_deductions?: number
+          total_earnings?: number
+        }
+        Update: {
+          advance_repayment?: number
+          basic?: number
+          created_at?: string
+          employee_id?: string
+          gross?: number
+          id?: string
+          net_pay?: number
+          organization_id?: string
+          pay_run_id?: string
+          status?: Database["public"]["Enums"]["payslip_status"]
+          total_deductions?: number
+          total_earnings?: number
+        }
+        Relationships: []
+      }
+      payslip_items: {
+        Row: {
+          amount: number
+          component_id: string | null
+          id: string
+          item_type: Database["public"]["Enums"]["component_type"]
+          label: string
+          organization_id: string
+          payslip_id: string
+        }
+        Insert: {
+          amount?: number
+          component_id?: string | null
+          id?: string
+          item_type: Database["public"]["Enums"]["component_type"]
+          label: string
+          organization_id: string
+          payslip_id: string
+        }
+        Update: {
+          amount?: number
+          component_id?: string | null
+          id?: string
+          item_type?: Database["public"]["Enums"]["component_type"]
+          label?: string
+          organization_id?: string
+          payslip_id?: string
+        }
+        Relationships: []
+      }
+      employee_advances: {
+        Row: {
+          advance_type: Database["public"]["Enums"]["advance_type"]
+          amount: number
+          approved_by: string | null
+          balance: number
+          created_at: string
+          created_by: string | null
+          disbursed_at: string | null
+          employee_id: string
+          id: string
+          installment_amount: number
+          installments: number
+          journal_entry_id: string | null
+          organization_id: string
+          reason: string | null
+          status: Database["public"]["Enums"]["advance_status"]
+          updated_at: string
+        }
+        Insert: {
+          advance_type?: Database["public"]["Enums"]["advance_type"]
+          amount?: number
+          approved_by?: string | null
+          balance?: number
+          created_at?: string
+          created_by?: string | null
+          disbursed_at?: string | null
+          employee_id: string
+          id?: string
+          installment_amount?: number
+          installments?: number
+          journal_entry_id?: string | null
+          organization_id: string
+          reason?: string | null
+          status?: Database["public"]["Enums"]["advance_status"]
+          updated_at?: string
+        }
+        Update: {
+          advance_type?: Database["public"]["Enums"]["advance_type"]
+          amount?: number
+          approved_by?: string | null
+          balance?: number
+          created_at?: string
+          created_by?: string | null
+          disbursed_at?: string | null
+          employee_id?: string
+          id?: string
+          installment_amount?: number
+          installments?: number
+          journal_entry_id?: string | null
+          organization_id?: string
+          reason?: string | null
+          status?: Database["public"]["Enums"]["advance_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      advance_repayments: {
+        Row: {
+          advance_id: string
+          amount: number
+          created_at: string
+          id: string
+          organization_id: string
+          payslip_id: string | null
+        }
+        Insert: {
+          advance_id: string
+          amount?: number
+          created_at?: string
+          id?: string
+          organization_id: string
+          payslip_id?: string | null
+        }
+        Update: {
+          advance_id?: string
+          amount?: number
+          created_at?: string
+          id?: string
+          organization_id?: string
+          payslip_id?: string | null
+        }
+        Relationships: []
+      }
       warehouses: {
         Row: {
           code: string | null
@@ -955,7 +2080,23 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      product_stock_v: {
+        Row: {
+          brand_name: string | null
+          category_name: string | null
+          created_at: string | null
+          id: string | null
+          image_url: string | null
+          min_stock: number | null
+          name: string | null
+          organization_id: string | null
+          qty: number | null
+          retail_price: number | null
+          sku: string | null
+          status: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       create_organization: {
@@ -965,6 +2106,7 @@ export type Database = {
           created_by: string | null
           currency: string
           id: string
+          logo_url: string | null
           is_active: boolean
           name: string
           slug: string | null
@@ -975,6 +2117,14 @@ export type Database = {
       }
       is_org_admin: { Args: { org: string }; Returns: boolean }
       is_org_member: { Args: { org: string }; Returns: boolean }
+      seed_accounting: { Args: { p_org: string }; Returns: undefined }
+      seed_hr: { Args: { p_org: string }; Returns: undefined }
+      seed_payroll: { Args: { p_org: string }; Returns: undefined }
+      seed_expenses: { Args: { p_org: string }; Returns: undefined }
+      seed_assets: { Args: { p_org: string }; Returns: undefined }
+      backfill_accounting: { Args: { p_org: string }; Returns: number }
+      post_journal_entry: { Args: { p_entry: string }; Returns: undefined }
+      void_journal_entry: { Args: { p_entry: string }; Returns: undefined }
       is_platform_admin: { Args: Record<PropertyKey, never>; Returns: boolean }
       org_role: {
         Args: { org: string }
@@ -983,6 +2133,43 @@ export type Database = {
       seed_demo_data: { Args: { org: string }; Returns: undefined }
     }
     Enums: {
+      asset_status: "active" | "fully_depreciated" | "disposed"
+      expense_status: "draft" | "approved" | "paid" | "cancelled"
+      recurrence: "weekly" | "monthly" | "quarterly" | "yearly"
+      component_type: "earning" | "deduction"
+      calc_method: "fixed" | "percent_basic"
+      payrun_status: "draft" | "approved" | "paid" | "cancelled"
+      payslip_status: "draft" | "approved" | "paid"
+      advance_type: "advance" | "loan"
+      advance_status:
+        | "pending"
+        | "approved"
+        | "disbursed"
+        | "settled"
+        | "rejected"
+        | "cancelled"
+      employment_type: "full_time" | "part_time" | "contract" | "intern" | "temporary"
+      employee_status: "active" | "on_leave" | "suspended" | "terminated"
+      pay_frequency: "monthly" | "biweekly" | "weekly" | "daily"
+      leave_status: "pending" | "approved" | "rejected" | "cancelled"
+      attendance_status:
+        | "present"
+        | "absent"
+        | "late"
+        | "half_day"
+        | "on_leave"
+        | "holiday"
+        | "remote"
+      account_type: "asset" | "liability" | "equity" | "income" | "expense"
+      journal_source:
+        | "manual"
+        | "sale"
+        | "purchase"
+        | "payment"
+        | "payroll"
+        | "adjustment"
+        | "opening"
+      journal_status: "draft" | "posted" | "void"
       log_severity: "info" | "warning" | "critical"
       movement_type:
         | "receiving"
@@ -1027,3 +2214,20 @@ export type PurchaseStatus = PublicEnums["purchase_status"]
 export type PaymentMethod = PublicEnums["payment_method"]
 export type TxnType = PublicEnums["txn_type"]
 export type LogSeverity = PublicEnums["log_severity"]
+export type AccountType = PublicEnums["account_type"]
+export type JournalSource = PublicEnums["journal_source"]
+export type JournalStatus = PublicEnums["journal_status"]
+export type EmploymentType = PublicEnums["employment_type"]
+export type EmployeeStatus = PublicEnums["employee_status"]
+export type PayFrequency = PublicEnums["pay_frequency"]
+export type LeaveStatus = PublicEnums["leave_status"]
+export type AttendanceStatus = PublicEnums["attendance_status"]
+export type ComponentType = PublicEnums["component_type"]
+export type CalcMethod = PublicEnums["calc_method"]
+export type PayrunStatus = PublicEnums["payrun_status"]
+export type PayslipStatus = PublicEnums["payslip_status"]
+export type AdvanceType = PublicEnums["advance_type"]
+export type AdvanceStatus = PublicEnums["advance_status"]
+export type ExpenseStatus = PublicEnums["expense_status"]
+export type Recurrence = PublicEnums["recurrence"]
+export type AssetStatus = PublicEnums["asset_status"]
