@@ -189,8 +189,8 @@ smart-inventory-pos/
 ### 1. Clone
 
 ```bash
-git clone https://github.com/apdiweli/smart-inventory-pos.git
-cd smart-inventory-pos/web
+git clone https://github.com/Jabir-Ahmed-Isse/smart_inventory_and_pos.git
+cd smart_inventory_and_pos/web
 ```
 
 ### 2. Install
@@ -277,11 +277,9 @@ This project is licensed under the MIT License — see [LICENSE](LICENSE).
 
 ## 👨‍💻 Author
 
-**Engineer Mire** — Software Engineer
+**Jabir Ahmed Isse** — Software Engineer
 
-- GitHub: [@apdiweli](https://github.com/apdiweli)
-- LinkedIn: https://www.linkedin.com/in/abdiweli-ali-046090209/
-- Email: alizakifarah@gmail.com
+- GitHub: [@Jabir-Ahmed-Isse](https://github.com/Jabir-Ahmed-Isse)
 
 ---
 
