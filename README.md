@@ -280,6 +280,7 @@ This project is licensed under the MIT License — see [LICENSE](LICENSE).
 **Jabir Ahmed Isse** — Software Engineer
 
 - GitHub: [@Jabir-Ahmed-Isse](https://github.com/Jabir-Ahmed-Isse)
+- Email: jaabiraxmed3703@gmail.com
 
 ---
 
