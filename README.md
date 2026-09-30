@@ -171,8 +171,6 @@ Google Gemini API  (AI insights & assistant, with deterministic fallback)
 
 ```text
 smart-inventory-pos/
-├── DEPLOY.md                 # Vercel deployment guide
-├── ROADMAP.md                # Build phases & status
 └── web/                      # the Next.js app (Vercel root directory)
     ├── src/
     │   ├── app/              # routes (dashboard, pos, finance, reports, purchases, …)
@@ -259,7 +257,6 @@ Dashboard · Products · Inventory · Warehouses · Purchasing (ERP) · Supplier
 - ⬜ Phase 7: Flutter mobile app (offline-first)
 - ⬜ Future: real file uploads (Supabase Storage), email-scheduled reports, multi-branch, multi-language
 
-See [ROADMAP.md](ROADMAP.md) for details.
 
 ---
 

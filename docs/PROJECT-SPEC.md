@@ -294,7 +294,7 @@ Vitest unit tests cover pure compute and access logic: `finance`, `accounting`, 
 
 - **Hosting:** designed for Vercel (project root = `web`), with Supabase as the managed backend.
 - **Setup:** configure env vars (Supabase URL, anon key, service-role key, AI keys), apply migrations in order, set Supabase auth redirect URLs, then smoke-test.
-- **Env:** `web/.env.example` documents required variables; `DEPLOY.md` documents the deploy flow.
+- **Env:** `web/.env.example` documents required variables.
 
 ---
 
