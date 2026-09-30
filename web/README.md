@@ -105,7 +105,7 @@ tables + RLS, helper functions, and the seed function. Real generated types are 
 `database.types.ts`. `.env.local` is set (gitignored) so the app runs against the live DB —
 auth gating is active and verified end-to-end.
 
-- **Demo login:** `demo@smartinventory.app` / `DemoPass123!` (workspace pre-seeded with
+- **Demo login:** `jaabiraxmed3703@gmail.com` / `jabir123` (workspace pre-seeded with
   categories, brands, warehouses, 3 products + inventory, 3 customers, transactions).
 - **Email confirmation is ON** in the project, so new `/register` sign-ups must confirm via
   email before first login. To make sign-up frictionless for a demo, turn it off in the

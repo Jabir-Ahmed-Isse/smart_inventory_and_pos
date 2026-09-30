@@ -27,8 +27,8 @@ Built as a portfolio-quality SaaS application to demonstrate production-ready fu
 **Live app:** https://smart-inventory-pos-six.vercel.app/
 
 **Demo login (shared sandbox):**
-- Email: `demo@smartinventory.app`
-- Password: `DemoPass123!`
+- Email: `jaabiraxmed3703@gmail.com`
+- Password: `jabir123`
 
 _Or register your own free workspace from the app to explore with a clean slate._
 
